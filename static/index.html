@@ -6,6 +6,7 @@
 <title>AI Content Factory</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&family=Montserrat:wght@400;600;700&family=DM+Serif+Display&family=Raleway:wght@400;600;700&family=Lora:wght@400;700&family=Source+Sans+3:wght@400;600&family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Roboto:wght@400;500&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0a0a0a;--surface:#141414;--border:#222;--border-light:#333;--accent:#FF4500;--accent-hover:#e63e00;--text:#e0e0e0;--text-dim:#888;--text-bright:#fff;--radius:8px;--radius-sm:6px}
@@ -355,9 +356,17 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">Logo brand</label>
-      <input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:8px">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Logo brand</label>
+        <input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:8px" onchange="handleLogoUpload(event)">
+        <div id="logoPreview" style="margin-top:6px"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Foto autore / volto brand</label>
+        <input type="file" class="form-input" id="fAuthor" accept="image/*" style="padding:8px" onchange="handleAuthorUpload(event)">
+        <div id="authorPreview" style="margin-top:6px"></div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -366,16 +375,13 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
     </div>
 
     <div class="form-group">
-      <label class="form-label">Autore / Volto del Brand</label>
+      <label class="form-label">Elementi da includere nelle slide</label>
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="radio" name="authorType" value="photo" checked> Foto reale
+          <input type="checkbox" id="chkLogo" checked> Includi logo nelle slide
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="radio" name="authorType" value="faceless"> Brand faceless — personaggio AI
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="radio" name="authorType" value="product"> Prodotto come visual principale
+          <input type="checkbox" id="chkAuthor"> Includi foto autore nelle slide
         </label>
       </div>
     </div>
@@ -659,6 +665,8 @@ let state = {
   duration: 30,
   frequency: {days_per_week: 5, posts_per_day: 1, selected_days: [1,2,3,4,5]},
   mix: 'bilanciato',
+  logoB64: null,
+  authorB64: null,
   design: {
     palette: null,
     fontHeading: 'Poppins',
@@ -684,7 +692,7 @@ function goSection(name) {
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:[],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -807,6 +815,30 @@ function processRefImage(file) {
 }
 function renderRefThumbs() {
   document.getElementById('refThumbs').innerHTML = state.refImages.map(src => `<img class="drop-thumb" src="${src}">`).join('');
+}
+
+// =================================================================
+// LOGO & AUTHOR UPLOAD
+// =================================================================
+function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.logoB64 = ev.target.result;
+    document.getElementById('logoPreview').innerHTML = `<img src="${ev.target.result}" style="height:40px;border-radius:4px;border:1px solid var(--border)">`;
+  };
+  reader.readAsDataURL(file);
+}
+function handleAuthorUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.authorB64 = ev.target.result;
+    document.getElementById('authorPreview').innerHTML = `<img src="${ev.target.result}" style="height:48px;width:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">`;
+  };
+  reader.readAsDataURL(file);
 }
 
 // =================================================================
@@ -1472,23 +1504,31 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
   const imgTag = includeImages && slide.img_b64 ? `<img src="data:image/png;base64,${slide.img_b64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.3;z-index:0">` : '';
 
+  // Logo overlay (top-left or top-center)
+  const showLogo = document.getElementById('chkLogo')?.checked && state.logoB64;
+  const logoHtml = showLogo ? `<img src="${state.logoB64}" style="position:absolute;top:16px;left:16px;height:28px;z-index:2;opacity:0.9">` : '';
+
+  // Author overlay (bottom-left on CTA slide, or as specified)
+  const showAuthor = document.getElementById('chkAuthor')?.checked && state.authorB64;
+  const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;z-index:2;display:flex;align-items:center;gap:8px"><img src="${state.authorB64}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid ${accent}"><span style="font-family:'${fb}',sans-serif;font-size:11px;color:${dim}">${escHtml(state.brand.instagram||'')}</span></div>` : '';
+
   let content = '';
   if (slide.type === 'hero') {
     content = `
-      <div style="position:relative;z-index:1;text-align:center;padding:40px 30px">
+      <div style="position:relative;z-index:1;text-align:center;padding:50px 30px 40px">
         <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin-bottom:16px">${escHtml(slide.heading||'')}</div>
         <div style="font-family:'${fb}',sans-serif;font-size:${14*ss}px;color:${dim};line-height:1.5">${escHtml(slide.body||'')}</div>
       </div>`;
   } else if (slide.type === 'cta') {
     content = `
-      <div style="position:relative;z-index:1;text-align:center;padding:40px 30px">
+      <div style="position:relative;z-index:1;text-align:center;padding:50px 30px 60px">
         <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};margin-bottom:12px">${escHtml(slide.heading||'')}</div>
         <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px">${escHtml(slide.body||'')}</div>
         <div style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:6px;font-family:'${fb}',sans-serif;font-size:13px;font-weight:600">Scopri di più</div>
       </div>`;
   } else {
     content = `
-      <div style="position:relative;z-index:1;padding:30px;${layout==='split'?'display:flex;gap:16px':''}">
+      <div style="position:relative;z-index:1;padding:50px 30px 40px;${layout==='split'?'display:flex;gap:16px':''}">
         <div style="flex:1">
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
           <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
@@ -1497,7 +1537,34 @@ function getSlideHTML(slide, idx, includeImages=false) {
       </div>`;
   }
 
-  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:4px">${imgTag}${content}</div>`;
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:4px">${imgTag}${logoHtml}${authorHtml}${content}</div>`;
+}
+
+// Capture a slide HTML element to PNG base64 via html2canvas
+async function captureSlideAsPng(slide, idx) {
+  // Create an offscreen container at full resolution
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1';
+  container.innerHTML = getSlideHTML(slide, idx, false);
+  document.body.appendChild(container);
+  const el = container.firstElementChild;
+
+  try {
+    const canvas = await html2canvas(el, {
+      width: parseInt(el.style.width),
+      height: parseInt(el.style.height),
+      scale: 2,
+      useCORS: true,
+      backgroundColor: null,
+    });
+    const dataUrl = canvas.toDataURL('image/png');
+    return dataUrl.split(',')[1]; // return pure base64
+  } catch(e) {
+    console.error('html2canvas error:', e);
+    return null;
+  } finally {
+    document.body.removeChild(container);
+  }
 }
 
 function renderPreview() {
@@ -1564,12 +1631,28 @@ async function generateImages() {
   const post = state.selectedPosts[state.currentPostIdx];
 
   for (let i = 0; i < slides.length; i++) {
-    document.getElementById('imgProgress').textContent = `Generando slide ${i+1}/${slides.length}...`;
-    fill.style.width = ((i+1)/slides.length*100) + '%';
+    // Step 1: Capture HTML preview as PNG reference
+    document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — cattura preview...`;
+    fill.style.width = ((i * 2) / (slides.length * 2) * 100) + '%';
+
+    let refPng = null;
+    try {
+      refPng = await captureSlideAsPng(slides[i], i);
+    } catch(e) {
+      console.error('Capture error:', e);
+    }
+
+    // Step 2: Send to Gemini with reference
+    document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — generazione Gemini...`;
+    fill.style.width = ((i * 2 + 1) / (slides.length * 2) * 100) + '%';
 
     try {
       const result = await api('/api/generate-images', {
-        slides: [{...slides[i], content_type: post.content_type}],
+        slides: [{
+          ...slides[i],
+          content_type: post.content_type,
+          reference_png: refPng,
+        }],
         brand_data: state.brand,
         palette: state.colors,
       });
@@ -1579,6 +1662,8 @@ async function generateImages() {
     } catch(e) {
       console.error('Image gen error:', e);
     }
+
+    fill.style.width = (((i + 1) * 2) / (slides.length * 2) * 100) + '%';
     renderPreview();
     renderGeminiList();
   }

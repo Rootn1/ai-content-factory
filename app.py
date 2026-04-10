@@ -83,15 +83,28 @@ async def claude_chat(messages: list, system: str = "", model: str = "claude-son
 # ---------------------------------------------------------------------------
 # Gemini image helper
 # ---------------------------------------------------------------------------
-async def generate_gemini_image(prompt: str) -> Optional[str]:
-    """Call Gemini to generate an image, return base64 PNG or None."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+async def generate_gemini_image(prompt: str, reference_b64: str = None) -> Optional[str]:
+    """Call Gemini to generate an image, optionally using a reference PNG. Return base64 PNG or None."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key={GEMINI_API_KEY}"
+
+    parts = []
+    if reference_b64:
+        parts.append({
+            "inlineData": {
+                "mimeType": "image/png",
+                "data": reference_b64
+            }
+        })
+        parts.append({"text": prompt})
+    else:
+        parts.append({"text": prompt})
+
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"responseMimeType": "image/png"}
+        "contents": [{"parts": parts}],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]}
     }
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(timeout=180) as client:
             r = await client.post(url, json=body)
             if r.status_code == 200:
                 data = r.json()
@@ -99,6 +112,8 @@ async def generate_gemini_image(prompt: str) -> Optional[str]:
                     for part in candidate.get("content", {}).get("parts", []):
                         if "inlineData" in part:
                             return part["inlineData"]["data"]
+            else:
+                print(f"Gemini HTTP {r.status_code}: {r.text[:300]}")
     except Exception as e:
         print(f"Gemini error: {e}")
     return None
@@ -658,22 +673,40 @@ async def generate_images(request: Request):
         st = slide.get("type", "body")
         ct = slide.get("content_type", "")
         heading = slide.get("heading", "")
+        body_text = slide.get("body", "")
+        ref_b64 = slide.get("reference_png")  # HTML-rendered slide as PNG
 
-        if st == "hero":
-            prompt = f"Cinematic background for {sector} brand, {mood} mood, {palette_desc} color palette, no people, no text, no logos, vertical 4:5 format, photorealistic, premium quality"
-        elif ct in ["tutorial_how_to", "errori_comuni", "checklist", "step_by_step"]:
-            subject = heading[:50] if heading else sector
-            prompt = f"Hand-drawn doodle illustration of {subject}, black ink on white background, sketch style, square composition, no text, clean minimal"
-        elif ct in ["did_you_know", "statistiche_shock"]:
-            prompt = f"Abstract data visualization concept, {palette_desc} colors, minimal flat design, no text, square composition, professional"
-        elif ct in ["storia_trasformazione", "case_study"]:
-            prompt = f"Lifestyle photo concept, {mood} atmosphere, warm light, no text, vertical 4:5, photorealistic"
-        elif ct in ["quote_motivazionale", "lezioni_di_vita"]:
-            prompt = f"Abstract minimalist background, {palette_desc}, soft gradient, no text, no people, vertical 4:5, artistic"
+        if ref_b64:
+            # Use the HTML preview as reference — ask Gemini to enhance it
+            prompt = (
+                f"This is a reference layout for a social media slide. "
+                f"Recreate this exact slide as a polished, professional Instagram post image. "
+                f"Keep the EXACT same text, layout, and structure. "
+                f"Enhance the visual quality: add depth, subtle gradients, and premium feel. "
+                f"Use these exact colors: {palette_desc}. "
+                f"Brand sector: {sector}. Mood: {mood}. "
+                f"The text must be EXACTLY: "
+                f"Heading: \"{heading[:80]}\" "
+                f"Body: \"{body_text[:150]}\" "
+                f"Output a single finished slide image, vertical 4:5 format, 1080x1350px quality."
+            )
+            img_b64 = await generate_gemini_image(prompt, reference_b64=ref_b64)
         else:
-            prompt = f"Professional lifestyle image for {sector}, {mood} mood, {palette_desc} palette, no text, vertical 4:5"
+            # Fallback: generate without reference
+            if st == "hero":
+                prompt = f"Cinematic background for {sector} brand, {mood} mood, {palette_desc} color palette, no people, no text, no logos, vertical 4:5 format, photorealistic, premium quality"
+            elif ct in ["tutorial_how_to", "errori_comuni", "checklist", "step_by_step"]:
+                subject = heading[:50] if heading else sector
+                prompt = f"Hand-drawn doodle illustration of {subject}, black ink on white background, sketch style, square composition, no text, clean minimal"
+            elif ct in ["did_you_know", "statistiche_shock"]:
+                prompt = f"Abstract data visualization concept, {palette_desc} colors, minimal flat design, no text, square composition, professional"
+            elif ct in ["quote_motivazionale", "lezioni_di_vita"]:
+                prompt = f"Abstract minimalist background, {palette_desc}, soft gradient, no text, no people, vertical 4:5, artistic"
+            else:
+                prompt = f"Professional lifestyle image for {sector}, {mood} mood, {palette_desc} palette, no text, vertical 4:5"
 
-        img_b64 = await generate_gemini_image(prompt)
+            img_b64 = await generate_gemini_image(prompt)
+
         results.append({"index": slide.get("index", 0), "img_b64": img_b64, "prompt": prompt})
 
     return {"slides_with_images": results}
