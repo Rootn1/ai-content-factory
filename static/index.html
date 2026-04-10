@@ -656,6 +656,8 @@ let state = {
   brand: {},
   keywords: [],
   colors: [],
+  colorRoles: {background:'', text:'', accent:'', secondary:'', dim:''},
+  alternateSlides: false,
   pillars: [],
   calendar: [],
   selectedPosts: [],
@@ -692,7 +694,7 @@ function goSection(name) {
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:[],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -732,8 +734,56 @@ function removeTag(i) {
 }
 
 // =================================================================
-// PALETTE
+// PALETTE & COLOR ROLES
 // =================================================================
+const ROLE_LABELS = {background:'Sfondo',text:'Testo',accent:'Accento',secondary:'Sfondo Alt',dim:'Testo Dim'};
+const ROLE_ORDER = ['background','text','accent','secondary','dim'];
+
+// Sync colorRoles from colors array (best-guess assignment)
+function syncRolesFromColors() {
+  const c = state.colors;
+  if (!c.length) { state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''}; return; }
+  // If roles already set and match, keep them
+  const existing = Object.values(state.colorRoles).filter(Boolean);
+  if (existing.length >= 3) return;
+  // Auto-assign: detect luminance to guess bg vs text
+  function lum(hex) {
+    const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+    return 0.299*r + 0.587*g + 0.114*b;
+  }
+  const sorted = c.map((hex,i)=>({hex,i,l:lum(hex)})).sort((a,b)=>a.l-b.l);
+  // Darkest = background, lightest = text, middle = accent
+  state.colorRoles.background = sorted[0].hex;
+  state.colorRoles.text = sorted[sorted.length-1].hex;
+  state.colorRoles.accent = sorted[Math.min(2, sorted.length-1)]?.hex || sorted[0].hex;
+  state.colorRoles.secondary = sorted[Math.min(1, sorted.length-1)]?.hex || sorted[0].hex;
+  state.colorRoles.dim = sorted[Math.max(0, sorted.length-2)]?.hex || sorted[sorted.length-1].hex;
+}
+
+// Set roles from API response (array of {hex, role})
+function setColorsFromAPI(colorsArr) {
+  if (!colorsArr?.length) return;
+  // Check if objects with roles
+  if (typeof colorsArr[0] === 'object' && colorsArr[0].hex) {
+    state.colors = colorsArr.map(c => c.hex);
+    state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''};
+    colorsArr.forEach(c => {
+      if (c.role && ROLE_ORDER.includes(c.role)) state.colorRoles[c.role] = c.hex;
+    });
+    // Fill any missing roles
+    const assigned = new Set(Object.values(state.colorRoles).filter(Boolean));
+    const unassigned = state.colors.filter(c => !assigned.has(c));
+    ROLE_ORDER.forEach(role => {
+      if (!state.colorRoles[role] && unassigned.length) state.colorRoles[role] = unassigned.shift();
+    });
+  } else {
+    // Plain hex array
+    state.colors = [...colorsArr];
+    state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''};
+    syncRolesFromColors();
+  }
+}
+
 function renderPalette() {
   const row = document.getElementById('paletteRow');
   row.innerHTML = '';
@@ -742,9 +792,10 @@ function renderPalette() {
     return;
   }
   state.colors.forEach((c, i) => {
+    const role = ROLE_ORDER.find(r => state.colorRoles[r] === c) || '';
     const div = document.createElement('div');
     div.style.textAlign = 'center';
-    div.innerHTML = `<div class="color-swatch" style="background:${c}" onclick="editColor(${i})"></div><div class="color-hex">${c}</div>`;
+    div.innerHTML = `<div class="color-swatch" style="background:${c}" onclick="editColor(${i})"></div><div class="color-hex">${c}</div>${role ? `<div style="font-size:9px;color:var(--text-dim);margin-top:2px">${ROLE_LABELS[role]||role}</div>` : ''}`;
     row.appendChild(div);
   });
 }
@@ -756,7 +807,7 @@ function editColor(i) {
   const input = document.createElement('input');
   input.type = 'color';
   input.value = state.colors[i];
-  input.onchange = () => { state.colors[i] = input.value; renderPalette(); };
+  input.onchange = () => { const old = state.colors[i]; state.colors[i] = input.value; ROLE_ORDER.forEach(r => { if(state.colorRoles[r]===old) state.colorRoles[r]=input.value; }); renderPalette(); };
   input.click();
 }
 
@@ -789,7 +840,7 @@ async function extractPalette() {
   try {
     const r = await api('/api/extract-palette', {image: b64});
     if (r.colors?.length) {
-      state.colors = r.colors.map(c => c.hex);
+      setColorsFromAPI(r.colors);
       renderPalette();
       toast('Palette estratta!', 'success');
     }
@@ -940,7 +991,7 @@ function fillBrandForm(data) {
     renderTags();
   }
   if (data.colors?.length) {
-    state.colors = data.colors;
+    setColorsFromAPI(data.colors);
     renderPalette();
   }
   if (data.heading_font) {
@@ -1385,12 +1436,29 @@ function showPaletteTab(tab, btn) {
   const area = document.getElementById('palettePresetsArea');
   if (tab === 'brand') {
     if (state.colors.length) {
+      const roleOptions = (currentRole, hex) => ROLE_ORDER.map(r =>
+        `<option value="${r}" ${state.colorRoles[r]===hex?'selected':''}>${ROLE_LABELS[r]}</option>`
+      ).join('');
       area.innerHTML = `
         <div style="margin-top:8px">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            ${state.colors.map((c, i) => `<div style="text-align:center"><div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div><div class="color-hex">${c}</div></div>`).join('')}
+          <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+            ${state.colors.map((c, i) => `
+              <div style="text-align:center;min-width:60px">
+                <div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div>
+                <div class="color-hex">${c}</div>
+                <select class="role-select" onchange="assignRole(this.value,'${c}')" style="font-size:10px;margin-top:4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px;width:72px">
+                  <option value="">—</option>
+                  ${roleOptions('',c)}
+                </select>
+              </div>`).join('')}
           </div>
-          <p class="form-hint" style="margin-top:8px">Palette estratta dal brand — clicca su un colore per modificarlo</p>
+          <p class="form-hint" style="margin-top:8px">Clicca sul colore per cambiarlo — usa il menu per assegnare il ruolo</p>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text)">
+              <input type="checkbox" id="chkAlternate" ${state.alternateSlides?'checked':''} onchange="state.alternateSlides=this.checked;renderPreview()">
+              Alterna sfondo e sfondo alt tra le slide
+            </label>
+          </div>
         </div>`;
     } else {
       area.innerHTML = '<p class="form-hint" style="margin-top:8px">Nessuna palette brand definita. Torna alla fase 1 per importare da URL o immagine.</p>';
@@ -1410,9 +1478,22 @@ function showPaletteTab(tab, btn) {
     </div>`).join('') + '</div>';
 }
 
+function assignRole(role, hex) {
+  if (!role) return;
+  // Remove this role from any other color
+  ROLE_ORDER.forEach(r => { if (state.colorRoles[r] === hex) state.colorRoles[r] = ''; });
+  // If another color had this role, swap
+  const oldHex = state.colorRoles[role];
+  state.colorRoles[role] = hex;
+  // Refresh the Brand tab UI
+  showPaletteTab('brand', document.getElementById('palTabBrand'));
+  renderPreview();
+}
+
 function selectPalette(tab, idx) {
   state.design.palette = tab + idx;
   state.colors = [...PALETTE_PRESETS[tab][idx].colors];
+  syncRolesFromColors();
   document.querySelectorAll('.palette-preset').forEach(p => p.classList.remove('active'));
   event.currentTarget.classList.add('active');
   renderPreview();
@@ -1430,7 +1511,15 @@ function renderLabPalette() {
 function editLabColor(i) {
   const input = document.createElement('input');
   input.type = 'color'; input.value = state.colors[i];
-  input.onchange = () => { state.colors[i] = input.value; renderLabPalette(); renderPreview(); };
+  input.onchange = () => {
+    const oldHex = state.colors[i];
+    state.colors[i] = input.value;
+    // Update role reference
+    ROLE_ORDER.forEach(r => { if (state.colorRoles[r] === oldHex) state.colorRoles[r] = input.value; });
+    renderLabPalette();
+    showPaletteTab('brand', document.getElementById('palTabBrand'));
+    renderPreview();
+  };
   input.click();
 }
 function addLabColor() {
@@ -1488,11 +1577,13 @@ function adjustSize(type, delta) {
 // PREVIEW
 // =================================================================
 function getSlideHTML(slide, idx, includeImages=false) {
-  const colors = state.colors;
-  const bg = colors[1] || '#1a1a1a';
-  const accent = colors[0] || '#FF4500';
-  const textColor = colors[2] || '#ffffff';
-  const dim = colors[3] || '#888888';
+  const r = state.colorRoles;
+  const bgMain = r.background || state.colors[0] || '#1a1a1a';
+  const bgAlt = r.secondary || state.colors[1] || '#2a2a2a';
+  const bg = (state.alternateSlides && idx % 2 === 1) ? bgAlt : bgMain;
+  const accent = r.accent || state.colors[2] || '#FF4500';
+  const textColor = r.text || state.colors[3] || '#ffffff';
+  const dim = r.dim || state.colors[4] || '#888888';
   const fh = state.design.fontHeading;
   const fb = state.design.fontBody;
   const layout = state.design.layout;
@@ -1748,7 +1839,8 @@ async function loadProject(slug) {
     state.brand = data.brand_data || {};
     state.pillars = (data.pillars?.pillars) || data.pillars || [];
     state.calendar = data.calendar?.entries || [];
-    state.colors = state.brand.colors || state.colors;
+    if (state.brand.colors?.length) setColorsFromAPI(state.brand.colors);
+    else syncRolesFromColors();
     state.keywords = state.brand.keywords || [];
 
     // Fill form

@@ -166,9 +166,10 @@ async def fetch_url(url: str) -> str:
 
 
 async def fetch_url_with_images(url: str) -> dict:
-    """Fetch URL content via Jina and also extract image URLs."""
+    """Fetch URL content via Jina and also extract image URLs + screenshot."""
     content = ""
     images = []
+    screenshot_url = ""
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             # Fetch markdown content
@@ -189,9 +190,13 @@ async def fetch_url_with_images(url: str) -> dict:
                     img_url = match.group(1)
                     if img_url and not img_url.startswith('data:') and not any(i['url'] == img_url for i in images):
                         images.append({"url": img_url, "alt": ""})
+            # Fetch screenshot URL via Jina
+            rs = await client.get(f"https://r.jina.ai/{url}", headers={"x-respond-with": "screenshot"})
+            if rs.is_success:
+                screenshot_url = rs.text.strip()
     except Exception:
         pass
-    return {"content": content, "images": images[:20]}
+    return {"content": content, "images": images[:20], "screenshot_url": screenshot_url}
 
 
 # ---------------------------------------------------------------------------
@@ -214,18 +219,36 @@ async def fetch_url_endpoint(request: Request):
     if not url:
         raise HTTPException(400, "URL richiesta")
 
-    # Fetch content + images via Jina
+    # Fetch content + images + screenshot via Jina
     fetched = await fetch_url_with_images(url)
     content = fetched["content"]
     site_images = fetched["images"]
+    screenshot_url = fetched.get("screenshot_url", "")
     if not content:
         raise HTTPException(400, "Impossibile leggere il contenuto della URL")
+
+    # Try to download screenshot for visual palette extraction
+    screenshot_b64 = ""
+    if screenshot_url:
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                r = await client.get(screenshot_url)
+                if r.is_success and r.headers.get("content-type", "").startswith("image"):
+                    screenshot_b64 = base64.b64encode(r.content).decode()
+        except Exception:
+            pass
 
     system = """Sei un esperto di brand strategy. Analizza il contenuto di questa pagina web e estrai tutte le informazioni utili per un brand brief.
 Rispondi SOLO con JSON valido, senza markdown fences.
 Scrivi SEMPRE in italiano."""
 
-    prompt = f"""Dalla seguente pagina web, estrai un brand brief strutturato.
+    # Build message parts — include screenshot if available for visual color analysis
+    user_parts = []
+    if screenshot_b64:
+        user_parts.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": screenshot_b64}})
+
+    user_parts.append({"type": "text", "text": f"""Dalla seguente pagina web, estrai un brand brief strutturato.
+{'Ho allegato uno screenshot del sito — usalo per estrarre i colori REALI della palette visiva.' if screenshot_b64 else ''}
 
 Contenuto pagina:
 {content[:12000]}
@@ -239,21 +262,27 @@ Restituisci JSON:
   "keywords": ["keyword1", "keyword2", ...],
   "instagram": "@handle se trovato oppure stringa vuota",
   "notes": "altre info utili trovate (nome founder, brand name, ecc.)",
-  "colors": ["#hex1", "#hex2", "#hex3", "#hex4", "#hex5"],
+  "colors": [{{"hex": "#...", "role": "background|text|accent|secondary|dim"}}],
   "heading_font": "font heading usato o suggerito dal sito",
   "body_font": "font body usato o suggerito dal sito"
 }}
 
-IMPORTANTE per i colori: estrai la color palette reale del sito web analizzando i colori menzionati nel CSS/HTML o deducendoli dal branding visivo descritto. Restituisci 4-6 colori hex. Se non riesci a dedurli, restituisci un array vuoto."""
+IMPORTANTE per i colori:
+- Restituisci 5-6 colori con i ruoli: background (sfondo principale), text (colore testo), accent (colore accento/primario), secondary (sfondo alternativo), dim (testo secondario/sottotitoli).
+- {'Analizza lo SCREENSHOT allegato per estrarre i colori REALI visibili nel sito.' if screenshot_b64 else 'Deduci i colori dal branding descritto nel contenuto.'}
+- Sii preciso con i valori hex. Se il sito ha sfondo scuro, il background deve essere scuro e il testo chiaro.
+- Se non riesci a dedurli, restituisci un array vuoto."""})
 
-    result = await claude_chat([{"role": "user", "content": prompt}], system=system)
+    result = await claude_chat([{"role": "user", "content": user_parts}], system=system)
     try:
         parsed = json.loads(result.strip().removeprefix("```json").removesuffix("```").strip())
     except json.JSONDecodeError:
         parsed = {"raw": result}
 
-    # Attach extracted images
+    # Attach extracted images and screenshot
     parsed["site_images"] = site_images
+    if screenshot_url:
+        parsed["screenshot_url"] = screenshot_url
     return parsed
 
 
@@ -717,12 +746,15 @@ async def extract_palette(request: Request):
     data = await request.json()
     image_b64 = data.get("image", "")
 
-    system = "Analizza l'immagine e restituisci i 5 colori dominanti come JSON: {\"colors\": [{\"hex\": \"#...\", \"name\": \"nome colore\", \"role\": \"primary|secondary|accent|background|text\"}]}"
+    system = """Analizza l'immagine e restituisci i 5-6 colori dominanti con ruoli assegnati.
+Rispondi SOLO con JSON valido: {"colors": [{"hex": "#...", "role": "background|text|accent|secondary|dim"}]}
+Ruoli: background = sfondo principale, text = colore testo heading, accent = colore accento/primario, secondary = sfondo alternativo, dim = testo secondario.
+Se l'immagine ha sfondo scuro → background scuro, text chiaro. Se sfondo chiaro → background chiaro, text scuro."""
 
     result = await claude_chat(
         [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
-            {"type": "text", "text": "Estrai la palette colori dominante da questa immagine. Rispondi solo con JSON."}
+            {"type": "text", "text": "Estrai la palette colori dominante da questa immagine con i ruoli corretti (background, text, accent, secondary, dim). Rispondi solo con JSON."}
         ]}],
         system=system,
     )
