@@ -268,12 +268,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <div class="loading hidden" id="urlLoading" style="margin-top:8px"><div class="spinner"></div><span>Analisi in corso...</span></div>
     </div>
 
-    <!-- Brand Brief Upload + Download -->
+    <!-- Brand Brief Upload -->
     <div class="form-group" style="padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <label class="form-label" style="margin-bottom:0">Brand Brief</label>
-        <button class="btn btn-sm btn-secondary hidden" id="btnDownloadBrief" onclick="downloadBrief()">Scarica Brief JSON</button>
-      </div>
+      <label class="form-label">Brand Brief</label>
       <div class="drop-area" id="dropBrief" ondrop="handleBriefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('briefFileInput').click()">
         <div class="drop-area-text">Trascina o clicca per caricare un brand brief (.txt, .json, .md)</div>
         <input type="file" id="briefFileInput" accept=".txt,.json,.md,.csv" style="display:none" onchange="handleBriefFile(event)">
@@ -341,10 +338,20 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
     <div class="form-group">
       <label class="form-label">Immagini di riferimento brand</label>
+      <!-- URL image input -->
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="form-input" id="fImageUrl" placeholder="Incolla URL immagine (https://...)" style="flex:1">
+        <button class="btn btn-sm btn-secondary" onclick="addImageFromUrl()">Aggiungi</button>
+      </div>
       <div class="drop-area" id="dropRef" ondrop="handleRefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('refFileInput').click()">
         <div class="drop-area-text">Foto del prodotto, autore, stile visivo — usate come reference per i contenuti</div>
         <div class="drop-thumbs" id="refThumbs"></div>
         <input type="file" id="refFileInput" accept="image/*" multiple style="display:none" onchange="handleRefFiles(event)">
+      </div>
+      <!-- Site images picker (populated after URL fetch) -->
+      <div id="siteImagesArea" class="hidden" style="margin-top:12px">
+        <label class="form-label">Immagini trovate sul sito — clicca per selezionare</label>
+        <div id="siteImagesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px"></div>
       </div>
     </div>
 
@@ -841,9 +848,54 @@ async function fetchFromUrl() {
   try {
     const data = await api('/api/fetch-url', {url});
     fillBrandForm(data);
+    // Show site images for selection
+    if (data.site_images?.length) {
+      showSiteImages(data.site_images);
+    }
     toast('Dati estratti dalla URL!', 'success');
   } catch(e) { toast('Errore: ' + e.message, 'error'); }
   finally { loading.classList.add('hidden'); }
+}
+
+function showSiteImages(images) {
+  const area = document.getElementById('siteImagesArea');
+  const grid = document.getElementById('siteImagesGrid');
+  area.classList.remove('hidden');
+  grid.innerHTML = images.map((img, i) => `
+    <div style="position:relative;cursor:pointer;border:2px solid var(--border);border-radius:6px;overflow:hidden;aspect-ratio:1;background:#1a1a1a"
+         onclick="toggleSiteImage(this,${i})" data-url="${img.url}" data-selected="false">
+      <img src="${img.url}" alt="${img.alt||''}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'">
+      <div style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:transparent;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" class="check-circle"></div>
+    </div>`).join('');
+  state._siteImages = images;
+}
+
+function toggleSiteImage(el, idx) {
+  const selected = el.dataset.selected === 'true';
+  el.dataset.selected = selected ? 'false' : 'true';
+  el.style.borderColor = selected ? 'var(--border)' : 'var(--accent)';
+  const check = el.querySelector('.check-circle');
+  check.style.background = selected ? 'transparent' : 'var(--accent)';
+  check.textContent = selected ? '' : '✓';
+
+  // Add/remove from ref images
+  const imgUrl = state._siteImages[idx].url;
+  if (!selected) {
+    if (!state.refImages.includes(imgUrl)) state.refImages.push(imgUrl);
+  } else {
+    state.refImages = state.refImages.filter(u => u !== imgUrl);
+  }
+  renderRefThumbs();
+}
+
+function addImageFromUrl() {
+  const input = document.getElementById('fImageUrl');
+  const url = input.value.trim();
+  if (!url) return;
+  state.refImages.push(url);
+  renderRefThumbs();
+  input.value = '';
+  toast('Immagine aggiunta', 'success');
 }
 
 function fillBrandForm(data) {
@@ -904,11 +956,6 @@ async function processBriefFile(file) {
   finally { loading.classList.add('hidden'); }
 }
 
-function downloadBrief() {
-  if (!state.slug) { toast('Salva prima il progetto', 'error'); return; }
-  window.open('/api/download-brief/' + state.slug, '_blank');
-}
-
 // =================================================================
 // BRAND → PILLARS FLOW
 // =================================================================
@@ -941,8 +988,6 @@ async function generatePillars() {
     const analysis = await api('/api/analyze-brand', brandData);
     state.slug = analysis.slug;
     state.brand = {...brandData, slug: analysis.slug, analysis: analysis.analysis};
-    document.getElementById('btnDownloadBrief').classList.remove('hidden');
-
     // Add suggested keywords
     if (analysis.analysis?.suggested_keywords) {
       analysis.analysis.suggested_keywords.forEach(kw => {
@@ -986,12 +1031,11 @@ async function importCSV(e) {
     const r = await fetch('/api/import-calendar', {method:'POST', body: formData});
     const data = await r.json();
     state.calendar = data.entries || [];
-    state.selectedPosts = [...state.calendar];
     document.querySelector('.nav-item[data-section="brand"]').classList.add('completed');
-    document.querySelector('.nav-item[data-section="pillars"]').classList.add('completed');
-    goSection('lab');
-    loadLabPost();
-    toast('Calendario importato!', 'success');
+    goSection('pillars');
+    renderCalendar();
+    document.getElementById('calendarView').classList.remove('hidden');
+    toast('Calendario importato! Seleziona i contenuti da generare.', 'success');
   } catch(e) {
     toast('Errore importazione: ' + e.message, 'error');
   }

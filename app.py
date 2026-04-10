@@ -150,6 +150,35 @@ async def fetch_url(url: str) -> str:
         return ""
 
 
+async def fetch_url_with_images(url: str) -> dict:
+    """Fetch URL content via Jina and also extract image URLs."""
+    content = ""
+    images = []
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Fetch markdown content
+            r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown"})
+            if r.is_success:
+                content = r.text[:15000]
+                # Extract image URLs from markdown: ![alt](url)
+                import re as _re
+                img_pattern = _re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
+                for match in img_pattern.finditer(r.text):
+                    alt = match.group(1)
+                    img_url = match.group(2)
+                    if img_url and not img_url.startswith('data:'):
+                        images.append({"url": img_url, "alt": alt})
+                # Also extract raw image URLs from HTML-style img tags in markdown
+                src_pattern = _re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
+                for match in src_pattern.finditer(r.text):
+                    img_url = match.group(1)
+                    if img_url and not img_url.startswith('data:') and not any(i['url'] == img_url for i in images):
+                        images.append({"url": img_url, "alt": ""})
+    except Exception:
+        pass
+    return {"content": content, "images": images[:20]}
+
+
 # ---------------------------------------------------------------------------
 # Routes — Pages
 # ---------------------------------------------------------------------------
@@ -170,8 +199,10 @@ async def fetch_url_endpoint(request: Request):
     if not url:
         raise HTTPException(400, "URL richiesta")
 
-    # Fetch content via Jina
-    content = await fetch_url(url)
+    # Fetch content + images via Jina
+    fetched = await fetch_url_with_images(url)
+    content = fetched["content"]
+    site_images = fetched["images"]
     if not content:
         raise HTTPException(400, "Impossibile leggere il contenuto della URL")
 
@@ -205,6 +236,9 @@ IMPORTANTE per i colori: estrai la color palette reale del sito web analizzando 
         parsed = json.loads(result.strip().removeprefix("```json").removesuffix("```").strip())
     except json.JSONDecodeError:
         parsed = {"raw": result}
+
+    # Attach extracted images
+    parsed["site_images"] = site_images
     return parsed
 
 
@@ -243,19 +277,7 @@ Restituisci JSON:
     return parsed
 
 
-@app.get("/api/download-brief/{slug}")
-async def download_brief(slug: str):
-    """Download the brand brief JSON for a project."""
-    d = PROJECTS_DIR / slug
-    brief_path = d / "brand-brief.json"
-    if not brief_path.exists():
-        raise HTTPException(404, "Brand brief non trovato")
-    data = load_json(brief_path)
-    return StreamingResponse(
-        io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")),
-        media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={slug}-brand-brief.json"},
-    )
+
 
 
 @app.get("/api/projects")
@@ -678,6 +700,38 @@ async def extract_palette(request: Request):
     return parsed
 
 
+def _brand_brief_to_md(data: dict) -> str:
+    """Convert brand brief JSON to a readable Markdown document."""
+    lines = ["# Brand Brief\n"]
+    if data.get("niche"):
+        lines.append(f"## Nicchia / Prodotto\n{data['niche']}\n")
+    if data.get("usp"):
+        lines.append(f"## USP — Unique Selling Proposition\n{data['usp']}\n")
+    if data.get("tone"):
+        lines.append(f"## Tone of Voice\n{data['tone']}\n")
+    if data.get("target"):
+        lines.append(f"## Target Audience\n{data['target']}\n")
+    if data.get("instagram"):
+        lines.append(f"## Profilo Instagram\n{data['instagram']}\n")
+    if data.get("keywords"):
+        lines.append("## Keywords\n" + ", ".join(data["keywords"]) + "\n")
+    if data.get("colors"):
+        lines.append("## Color Palette\n" + " | ".join(data["colors"]) + "\n")
+    if data.get("heading_font") or data.get("body_font"):
+        lines.append(f"## Tipografia\n- Heading: {data.get('heading_font', 'N/A')}\n- Body: {data.get('body_font', 'N/A')}\n")
+    if data.get("notes"):
+        lines.append(f"## Note Aggiuntive\n{data['notes']}\n")
+    if data.get("analysis"):
+        a = data["analysis"]
+        if a.get("brand_name"):
+            lines.append(f"## Brand Name\n{a['brand_name']}\n")
+        if a.get("sector"):
+            lines.append(f"## Settore\n{a['sector']}\n")
+        if a.get("tone_synthesis"):
+            lines.append(f"## Sintesi Tono\n{a['tone_synthesis']}\n")
+    return "\n".join(lines)
+
+
 @app.post("/api/export-zip")
 async def export_zip(request: Request):
     data = await request.json()
@@ -687,12 +741,19 @@ async def export_zip(request: Request):
     if not slug:
         raise HTTPException(400, "slug required")
 
-    d = PROJECTS_DIR / slug / "posts"
+    project_root = PROJECTS_DIR / slug
+    d = project_root / "posts"
     if not d.exists():
         raise HTTPException(404, "No posts found")
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Add brand brief as markdown
+        brief_data = load_json(project_root / "brand-brief.json")
+        if brief_data:
+            md = _brand_brief_to_md(brief_data)
+            zf.writestr("brand-brief.md", md)
+
         if post_slug:
             dirs = [d / post_slug] if (d / post_slug).exists() else []
         else:
