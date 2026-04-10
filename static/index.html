@@ -325,7 +325,10 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
     <div class="form-group">
       <label class="form-label">Color Palette</label>
       <div class="palette-row" id="paletteRow"></div>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addColor()">+ Colore</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-sm btn-secondary" onclick="addColor()">+ Colore</button>
+        <button class="btn btn-sm btn-secondary" id="btnRetryPalette" style="display:none" onclick="retryExtractPalette()" title="Riestrai palette dalla URL">&#x21bb; Riestrai</button>
+      </div>
     </div>
 
     <div class="form-group">
@@ -847,6 +850,33 @@ async function extractPalette() {
   } catch(e) { toast('Errore estrazione: ' + e.message, 'error'); }
   // Update thumbnail — remove spinner
   document.getElementById('paletteThumbs').innerHTML = `<img class="drop-thumb" src="${state.paletteImage}">`;
+  document.getElementById('btnRetryPalette').style.display = '';
+}
+
+async function retryExtractPalette() {
+  const url = document.getElementById('fUrl').value.trim();
+  if (state.paletteImage) {
+    // Re-extract from uploaded image
+    document.getElementById('btnRetryPalette').innerHTML = '&#x21bb; Estrazione...';
+    await extractPalette();
+    document.getElementById('btnRetryPalette').innerHTML = '&#x21bb; Riestrai';
+  } else if (url) {
+    // Re-fetch URL and re-extract colors
+    document.getElementById('btnRetryPalette').innerHTML = '&#x21bb; Estrazione...';
+    try {
+      const data = await api('/api/fetch-url', {url});
+      if (data.colors?.length) {
+        setColorsFromAPI(data.colors);
+        renderPalette();
+        toast('Palette riestratta!', 'success');
+      } else {
+        toast('Nessun colore trovato', 'error');
+      }
+    } catch(e) { toast('Errore: ' + e.message, 'error'); }
+    document.getElementById('btnRetryPalette').innerHTML = '&#x21bb; Riestrai';
+  } else {
+    toast('Inserisci una URL o carica un\'immagine', 'error');
+  }
 }
 
 function handleRefDrop(e) {
@@ -993,6 +1023,10 @@ function fillBrandForm(data) {
   if (data.colors?.length) {
     setColorsFromAPI(data.colors);
     renderPalette();
+  }
+  // Show retry button when we have a URL source
+  if (document.getElementById('fUrl').value.trim() || state.paletteImage) {
+    document.getElementById('btnRetryPalette').style.display = '';
   }
   if (data.heading_font) {
     document.getElementById('fHeadingFont').value = data.heading_font;
