@@ -84,7 +84,7 @@ async def claude_chat(messages: list, system: str = "", model: str = "claude-son
 # Gemini image helper
 # ---------------------------------------------------------------------------
 async def generate_gemini_image(prompt: str) -> Optional[str]:
-    """Call Gemini 2.0 Flash to generate an image, return base64 PNG or None."""
+    """Call Gemini to generate an image, return base64 PNG or None."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -161,6 +161,98 @@ async def index():
 # ---------------------------------------------------------------------------
 # Routes — API
 # ---------------------------------------------------------------------------
+
+@app.post("/api/fetch-url")
+async def fetch_url_endpoint(request: Request):
+    """Fetch a URL via Jina and extract brand info with Claude."""
+    data = await request.json()
+    url = data.get("url", "").strip()
+    if not url:
+        raise HTTPException(400, "URL richiesta")
+
+    # Fetch content via Jina
+    content = await fetch_url(url)
+    if not content:
+        raise HTTPException(400, "Impossibile leggere il contenuto della URL")
+
+    system = """Sei un esperto di brand strategy. Analizza il contenuto di questa pagina web e estrai tutte le informazioni utili per un brand brief.
+Rispondi SOLO con JSON valido, senza markdown fences.
+Scrivi SEMPRE in italiano."""
+
+    prompt = f"""Dalla seguente pagina web, estrai un brand brief strutturato.
+
+Contenuto pagina:
+{content[:12000]}
+
+Restituisci JSON:
+{{
+  "niche": "descrizione della nicchia/prodotto/servizio",
+  "usp": "unique selling proposition trovata o dedotta",
+  "tone": "tono di voce del brand",
+  "target": "target audience identificato",
+  "keywords": ["keyword1", "keyword2", ...],
+  "instagram": "@handle se trovato oppure stringa vuota",
+  "notes": "altre info utili trovate (nome founder, brand name, ecc.)"
+}}"""
+
+    result = await claude_chat([{"role": "user", "content": prompt}], system=system)
+    try:
+        parsed = json.loads(result.strip().removeprefix("```json").removesuffix("```").strip())
+    except json.JSONDecodeError:
+        parsed = {"raw": result}
+    return parsed
+
+
+@app.post("/api/parse-brief")
+async def parse_brief(request: Request):
+    """Parse an uploaded brand brief text/file and extract structured data."""
+    data = await request.json()
+    text = data.get("text", "").strip()
+    if not text:
+        raise HTTPException(400, "Testo del brief richiesto")
+
+    system = """Sei un esperto di brand strategy. Analizza questo brand brief e estrai informazioni strutturate.
+Rispondi SOLO con JSON valido, senza markdown fences.
+Scrivi SEMPRE in italiano."""
+
+    prompt = f"""Dal seguente brand brief, estrai dati strutturati:
+
+{text[:12000]}
+
+Restituisci JSON:
+{{
+  "niche": "descrizione della nicchia/prodotto/servizio",
+  "usp": "unique selling proposition",
+  "tone": "tono di voce",
+  "target": "target audience",
+  "keywords": ["keyword1", "keyword2", ...],
+  "instagram": "@handle se presente oppure stringa vuota",
+  "notes": "altre info utili"
+}}"""
+
+    result = await claude_chat([{"role": "user", "content": prompt}], system=system)
+    try:
+        parsed = json.loads(result.strip().removeprefix("```json").removesuffix("```").strip())
+    except json.JSONDecodeError:
+        parsed = {"raw": result}
+    return parsed
+
+
+@app.get("/api/download-brief/{slug}")
+async def download_brief(slug: str):
+    """Download the brand brief JSON for a project."""
+    d = PROJECTS_DIR / slug
+    brief_path = d / "brand-brief.json"
+    if not brief_path.exists():
+        raise HTTPException(404, "Brand brief non trovato")
+    data = load_json(brief_path)
+    return StreamingResponse(
+        io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={slug}-brand-brief.json"},
+    )
+
+
 @app.get("/api/projects")
 async def list_projects():
     projects = []

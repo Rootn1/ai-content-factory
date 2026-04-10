@@ -258,6 +258,29 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
   <p class="section-subtitle">Compila i dati del brand per generare pillar e calendario editoriale</p>
 
   <div class="card" style="max-width:780px">
+    <!-- URL Fetch -->
+    <div class="form-group" style="padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:20px">
+      <label class="form-label">Importa da URL</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="fUrl" placeholder="https://tuosito.com — analizziamo il sito e compiliamo tutto in automatico" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="fetchFromUrl()">Analizza URL</button>
+      </div>
+      <div class="loading hidden" id="urlLoading" style="margin-top:8px"><div class="spinner"></div><span>Analisi in corso...</span></div>
+    </div>
+
+    <!-- Brand Brief Upload + Download -->
+    <div class="form-group" style="padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label class="form-label" style="margin-bottom:0">Brand Brief</label>
+        <button class="btn btn-sm btn-secondary hidden" id="btnDownloadBrief" onclick="downloadBrief()">Scarica Brief JSON</button>
+      </div>
+      <div class="drop-area" id="dropBrief" ondrop="handleBriefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('briefFileInput').click()">
+        <div class="drop-area-text">Trascina o clicca per caricare un brand brief (.txt, .json, .md)</div>
+        <input type="file" id="briefFileInput" accept=".txt,.json,.md,.csv" style="display:none" onchange="handleBriefFile(event)">
+      </div>
+      <div class="loading hidden" id="briefLoading" style="margin-top:8px"><div class="spinner"></div><span>Analisi in corso...</span></div>
+    </div>
+
     <div class="form-group">
       <label class="form-label">Nicchia / Prodotto *</label>
       <textarea class="form-textarea" id="fNiche" rows="2" placeholder="Es: Corso online per freelance che vogliono passare a €5k/mese"></textarea>
@@ -354,7 +377,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <button class="btn btn-primary" id="btnGenPillars" onclick="generatePillars()">Genera Pilastri &rarr;</button>
       <button class="btn btn-secondary" onclick="document.getElementById('csvImport').click()">&uarr; Importa Calendario CSV</button>
       <input type="file" id="csvImport" accept=".csv" style="display:none" onchange="importCSV(event)">
-      <div class="loading hidden" id="brandLoading"><div class="spinner"></div><span>Analisi brand in corso... claude-sonnet</span></div>
+      <div class="loading hidden" id="brandLoading"><div class="spinner"></div><span>Analisi in corso...</span></div>
     </div>
   </div>
 </div>
@@ -424,7 +447,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
     <div style="display:flex;gap:12px;align-items:center">
       <button class="btn btn-primary" onclick="generateCalendar()">Genera Calendario</button>
-      <div class="loading hidden" id="calLoading"><div class="spinner"></div><span>Generazione calendario... claude-sonnet</span></div>
+      <div class="loading hidden" id="calLoading"><div class="spinner"></div><span>Analisi in corso...</span></div>
     </div>
   </div>
 
@@ -487,7 +510,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content" id="copyBlock">
-      <div class="loading" id="copyLoading"><div class="spinner"></div><span>Claude sta creando il copy... claude-haiku</span></div>
+      <div class="loading" id="copyLoading"><div class="spinner"></div><span>Analisi in corso...</span></div>
       <div id="slidesCards"></div>
       <div class="form-group" style="margin-top:16px">
         <label class="form-label">Full Copy Block</label>
@@ -579,10 +602,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content">
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Modello: Nano Banana 2 (gemini-2.0-flash-exp)</p>
       <div id="geminiSlideList" style="margin-bottom:12px"></div>
       <div style="display:flex;gap:12px;align-items:center">
-        <button class="btn btn-primary" onclick="generateImages()">Genera Immagini</button>
+        <button class="btn btn-primary" onclick="generateImages()">Genera le slide</button>
         <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()">Scarica ZIP</button>
         <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generando slide 1/6...</span></div>
       </div>
@@ -805,6 +827,71 @@ async function api(url, data, method='POST') {
 }
 
 // =================================================================
+// URL FETCH & BRIEF IMPORT
+// =================================================================
+async function fetchFromUrl() {
+  const url = document.getElementById('fUrl').value.trim();
+  if (!url) { toast('Inserisci una URL', 'error'); return; }
+  const loading = document.getElementById('urlLoading');
+  loading.classList.remove('hidden');
+  try {
+    const data = await api('/api/fetch-url', {url});
+    fillBrandForm(data);
+    toast('Dati estratti dalla URL!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+  finally { loading.classList.add('hidden'); }
+}
+
+function fillBrandForm(data) {
+  if (data.niche) document.getElementById('fNiche').value = data.niche;
+  if (data.usp) document.getElementById('fUsp').value = data.usp;
+  if (data.tone) document.getElementById('fTone').value = data.tone;
+  if (data.target) document.getElementById('fTarget').value = data.target;
+  if (data.instagram) document.getElementById('fInstagram').value = data.instagram;
+  if (data.notes) document.getElementById('fNotes').value = data.notes;
+  if (data.keywords?.length) {
+    data.keywords.forEach(kw => { if (!state.keywords.includes(kw)) state.keywords.push(kw); });
+    renderTags();
+  }
+}
+
+function handleBriefDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processBriefFile(file);
+}
+function handleBriefFile(e) {
+  if (e.target.files[0]) processBriefFile(e.target.files[0]);
+}
+async function processBriefFile(file) {
+  const loading = document.getElementById('briefLoading');
+  loading.classList.remove('hidden');
+  try {
+    const text = await file.text();
+    // If it's JSON, try to parse directly
+    if (file.name.endsWith('.json')) {
+      try {
+        const data = JSON.parse(text);
+        fillBrandForm(data);
+        toast('Brief caricato!', 'success');
+        loading.classList.add('hidden');
+        return;
+      } catch(e) { /* not valid JSON, send to Claude */ }
+    }
+    // Send to Claude for parsing
+    const data = await api('/api/parse-brief', {text});
+    fillBrandForm(data);
+    toast('Brief analizzato e compilato!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+  finally { loading.classList.add('hidden'); }
+}
+
+function downloadBrief() {
+  if (!state.slug) { toast('Salva prima il progetto', 'error'); return; }
+  window.open('/api/download-brief/' + state.slug, '_blank');
+}
+
+// =================================================================
 // BRAND → PILLARS FLOW
 // =================================================================
 async function generatePillars() {
@@ -832,10 +919,11 @@ async function generatePillars() {
 
   try {
     // 1. Analyze brand
-    loading.querySelector('span').textContent = 'Analisi brand in corso... claude-sonnet';
+    loading.querySelector('span').textContent = 'Analisi in corso...';
     const analysis = await api('/api/analyze-brand', brandData);
     state.slug = analysis.slug;
     state.brand = {...brandData, slug: analysis.slug, analysis: analysis.analysis};
+    document.getElementById('btnDownloadBrief').classList.remove('hidden');
 
     // Add suggested keywords
     if (analysis.analysis?.suggested_keywords) {
@@ -846,11 +934,11 @@ async function generatePillars() {
     }
 
     // 2. Research keywords
-    loading.querySelector('span').textContent = 'Ricerca keywords... serpapi/jina';
+    loading.querySelector('span').textContent = 'Analisi in corso...';
     const research = await api('/api/research-keywords', {keywords: state.keywords.slice(0, 5)});
 
     // 3. Generate pillars
-    loading.querySelector('span').textContent = 'Generazione pillar... claude-sonnet';
+    loading.querySelector('span').textContent = 'Analisi in corso...';
     const pillarsResult = await api('/api/generate-pillars', {brand_data: state.brand, research_results: research});
     state.pillars = pillarsResult.pillars || [];
 
