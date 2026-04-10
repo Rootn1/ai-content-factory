@@ -1759,23 +1759,30 @@ async function generateImages() {
     renderGeminiList();
   }
 
-  // Save slides to disk
+  // Save slides to disk — capture preview PNGs as fallback
   if (state.slug) {
     try {
-      const slidesPayload = slides.map((s, i) => ({
-        index: s.index || i + 1,
-        type: s.type,
-        heading: s.heading,
-        body: s.body,
-        html: getSlideFullHTML(s, i, true),
-        img_b64: s.img_b64 || null,
-      }));
+      const slidesPayload = [];
+      for (let i = 0; i < slides.length; i++) {
+        let previewPng = null;
+        if (!slides[i].img_b64) {
+          // No Gemini image — capture html2canvas as fallback PNG
+          try { previewPng = await captureSlideAsPng(slides[i], i); } catch(e) {}
+        }
+        slidesPayload.push({
+          index: slides[i].index || i + 1,
+          type: slides[i].type,
+          heading: slides[i].heading,
+          body: slides[i].body,
+          img_b64: slides[i].img_b64 || null,
+          preview_png: previewPng,
+        });
+      }
       await api('/api/save-slides', {
         slug: state.slug,
         entry: post,
         slides: slidesPayload,
         caption: state.currentCopy.caption || '',
-        reel_script: state.currentCopy.reel_script || '',
       });
     } catch(e) {
       console.error('Save slides error:', e);

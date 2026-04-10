@@ -819,16 +819,16 @@ async def save_slides(request: Request):
 
     for slide in slides:
         idx = slide.get("index", 0)
-        html = slide.get("html", "")
         img_b64 = slide.get("img_b64")
+        preview_b64 = slide.get("preview_png")
 
-        # Save HTML
-        if html:
-            (slides_dir / f"slide_{idx:02d}.html").write_text(html, encoding="utf-8")
-
-        # Save image as PNG
+        # Save Gemini-generated image as PNG (priority)
         if img_b64:
             img_data = base64.b64decode(img_b64)
+            (images_dir / f"slide_{idx:02d}.png").write_bytes(img_data)
+        elif preview_b64:
+            # Fallback: save html2canvas preview PNG
+            img_data = base64.b64decode(preview_b64)
             (images_dir / f"slide_{idx:02d}.png").write_bytes(img_data)
 
     # Save caption & script
@@ -875,18 +875,14 @@ async def export_zip(request: Request):
             if not post_dir.is_dir():
                 continue
             prefix = post_dir.name + "/"
-            # Add slides
-            slides_dir = post_dir / "slides"
-            if slides_dir.exists():
-                for f in sorted(slides_dir.iterdir()):
-                    zf.write(f, prefix + "slides/" + f.name)
-            # Add export PNGs
-            export_dir = post_dir / "export"
-            if export_dir.exists():
-                for f in sorted(export_dir.iterdir()):
-                    zf.write(f, prefix + "slides/" + f.name)
-            # Add caption & script
-            for fname in ["caption.txt", "script_reel.txt"]:
+            # Add slide PNGs (Gemini-generated or html2canvas fallback)
+            images_dir = post_dir / "images"
+            if images_dir.exists():
+                for f in sorted(images_dir.iterdir()):
+                    if f.suffix.lower() == ".png":
+                        zf.write(f, prefix + f.name)
+            # Add caption
+            for fname in ["caption.txt"]:
                 fp = post_dir / fname
                 if fp.exists():
                     zf.write(fp, prefix + fname)
