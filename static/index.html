@@ -329,7 +329,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
     <div class="form-group">
       <label class="form-label">Immagine di riferimento palette</label>
-      <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('paletteFileInput').click()">
+      <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="if(!state.paletteImage)document.getElementById('paletteFileInput').click()">
         <div class="drop-area-text">Trascina o clicca per caricare un'immagine da cui estrarre la palette</div>
         <div class="drop-thumbs" id="paletteThumbs"></div>
         <input type="file" id="paletteFileInput" accept="image/*" style="display:none" onchange="handlePaletteFile(event)">
@@ -769,14 +769,14 @@ function processPaletteImage(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     state.paletteImage = e.target.result;
-    document.getElementById('paletteThumbs').innerHTML = `<img class="drop-thumb" src="${e.target.result}"><button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="extractPalette()">Estrai palette</button>`;
+    document.getElementById('paletteThumbs').innerHTML = `<img class="drop-thumb" src="${e.target.result}"><span class="loading" style="margin-left:8px"><span class="spinner"></span><span>Estrazione palette...</span></span>`;
+    extractPalette();
   };
   reader.readAsDataURL(file);
 }
 async function extractPalette() {
   if (!state.paletteImage) return;
   const b64 = state.paletteImage.split(',')[1];
-  toast('Estrazione palette in corso...');
   try {
     const r = await api('/api/extract-palette', {image: b64});
     if (r.colors?.length) {
@@ -785,6 +785,8 @@ async function extractPalette() {
       toast('Palette estratta!', 'success');
     }
   } catch(e) { toast('Errore estrazione: ' + e.message, 'error'); }
+  // Update thumbnail — remove spinner
+  document.getElementById('paletteThumbs').innerHTML = `<img class="drop-thumb" src="${state.paletteImage}">`;
 }
 
 function handleRefDrop(e) {
