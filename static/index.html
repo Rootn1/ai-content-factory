@@ -572,6 +572,22 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <label class="form-label">Layout</label>
         <div class="layout-presets" id="layoutPresets"></div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Allineamento Testo</label>
+        <div style="display:flex;gap:6px" id="alignBtns">
+          <button class="toggle-btn" onclick="setAlign('left',this)" title="Sinistra">&#9664; Sx</button>
+          <button class="toggle-btn active" onclick="setAlign('center',this)" title="Centro">&#9632; Centro</button>
+          <button class="toggle-btn" onclick="setAlign('right',this)" title="Destra">Dx &#9654;</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Posizione Testo (body slide)</label>
+        <div style="display:flex;gap:6px" id="vAlignBtns">
+          <button class="toggle-btn" onclick="setVAlign('top',this)">&#9650; Alto</button>
+          <button class="toggle-btn active" onclick="setVAlign('center',this)">&#9632; Centro</button>
+          <button class="toggle-btn" onclick="setVAlign('bottom',this)">&#9660; Basso</button>
+        </div>
+      </div>
       <div class="form-row" style="margin-top:12px">
         <div class="form-group">
           <label class="form-label">Title Size</label>
@@ -677,6 +693,8 @@ let state = {
     fontHeading: 'Poppins',
     fontBody: 'DM Sans',
     layout: 'centered',
+    textAlign: 'center',
+    vAlign: 'center',
     titleSize: 100,
     subSize: 100,
   },
@@ -697,7 +715,7 @@ function goSection(name) {
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',textAlign:'center',vAlign:'center',titleSize:100,subSize:100},refImages:[],paletteImage:null};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -1462,7 +1480,7 @@ const FONT_PRESETS = [
   {heading:'Space Grotesk',body:'Inter'},
 ];
 
-const LAYOUTS = ['Centered','Split','Quote','List','Gradient','Card','Magazine'];
+const LAYOUTS = ['Centered','Split','Titolo + Img','Quote','List','Card','Magazine'];
 
 function showPaletteTab(tab, btn) {
   btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
@@ -1606,21 +1624,47 @@ function adjustSize(type, delta) {
   }
   renderPreview();
 }
+function setAlign(align, btn) {
+  state.design.textAlign = align;
+  document.getElementById('alignBtns').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+}
+function setVAlign(va, btn) {
+  state.design.vAlign = va;
+  document.getElementById('vAlignBtns').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+}
 
 // =================================================================
 // PREVIEW
 // =================================================================
+function autoContrastText(bgHex, lightColor, darkColor) {
+  // Return light or dark text color based on background luminance
+  const r = parseInt(bgHex.slice(1,3),16)/255, g = parseInt(bgHex.slice(3,5),16)/255, b = parseInt(bgHex.slice(5,7),16)/255;
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  return lum > 0.5 ? darkColor : lightColor;
+}
+
 function getSlideHTML(slide, idx, includeImages=false) {
-  const r = state.colorRoles;
-  const bgMain = r.background || state.colors[0] || '#1a1a1a';
-  const bgAlt = r.secondary || state.colors[1] || '#2a2a2a';
+  const cr = state.colorRoles;
+  const bgMain = cr.background || state.colors[0] || '#1a1a1a';
+  const bgAlt = cr.secondary || state.colors[1] || '#2a2a2a';
   const bg = (state.alternateSlides && idx % 2 === 1) ? bgAlt : bgMain;
-  const accent = r.accent || state.colors[2] || '#FF4500';
-  const textColor = r.text || state.colors[3] || '#ffffff';
-  const dim = r.dim || state.colors[4] || '#888888';
+  const accent = cr.accent || state.colors[2] || '#FF4500';
+
+  // Auto-contrast: pick text color based on actual bg luminance
+  const textRaw = cr.text || state.colors[3] || '#ffffff';
+  const dimRaw = cr.dim || state.colors[4] || '#888888';
+  const textColor = autoContrastText(bg, textRaw, bgMain);
+  const dim = autoContrastText(bg, dimRaw, bgMain);
+
   const fh = state.design.fontHeading;
   const fb = state.design.fontBody;
   const layout = state.design.layout;
+  const ta = state.design.textAlign || 'center';
+  const va = state.design.vAlign || 'center';
   const ts = state.design.titleSize / 100;
   const ss = state.design.subSize / 100;
 
@@ -1629,40 +1673,67 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
   const imgTag = includeImages && slide.img_b64 ? `<img src="data:image/png;base64,${slide.img_b64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.3;z-index:0">` : '';
 
-  // Logo overlay (top-left or top-center)
+  // Logo overlay
   const showLogo = document.getElementById('chkLogo')?.checked && state.logoB64;
   const logoHtml = showLogo ? `<img src="${state.logoB64}" style="position:absolute;top:16px;left:16px;height:28px;z-index:2;opacity:0.9">` : '';
 
-  // Author overlay (bottom-left on CTA slide, or as specified)
+  // Author overlay
   const showAuthor = document.getElementById('chkAuthor')?.checked && state.authorB64;
   const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;z-index:2;display:flex;align-items:center;gap:8px"><img src="${state.authorB64}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid ${accent}"><span style="font-family:'${fb}',sans-serif;font-size:11px;color:${dim}">${escHtml(state.brand.instagram||'')}</span></div>` : '';
+
+  // Vertical alignment for outer container
+  const vaMap = {top:'flex-start', center:'center', bottom:'flex-end'};
+  const alignItems = vaMap[va] || 'center';
 
   let content = '';
   if (slide.type === 'hero') {
     content = `
-      <div style="position:relative;z-index:1;text-align:center;padding:50px 30px 40px">
+      <div style="position:relative;z-index:1;text-align:${ta};padding:50px 30px 40px;width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin-bottom:16px">${escHtml(slide.heading||'')}</div>
         <div style="font-family:'${fb}',sans-serif;font-size:${14*ss}px;color:${dim};line-height:1.5">${escHtml(slide.body||'')}</div>
       </div>`;
   } else if (slide.type === 'cta') {
     content = `
-      <div style="position:relative;z-index:1;text-align:center;padding:50px 30px 60px">
+      <div style="position:relative;z-index:1;text-align:${ta};padding:50px 30px 60px;width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};margin-bottom:12px">${escHtml(slide.heading||'')}</div>
         <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px">${escHtml(slide.body||'')}</div>
         <div style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:6px;font-family:'${fb}',sans-serif;font-size:13px;font-weight:600">Scopri di più</div>
       </div>`;
-  } else {
+  } else if (layout === 'titolo + img') {
+    // Title top centered, accent image placeholder in middle, body text bottom
     content = `
-      <div style="position:relative;z-index:1;padding:50px 30px 40px;${layout==='split'?'display:flex;gap:16px':''}">
-        <div style="flex:1">
+      <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;width:100%;padding:40px 30px 30px">
+        <div style="text-align:center;margin-bottom:auto">
+          <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};line-height:1.3">${escHtml(slide.heading||'')}</div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;margin:12px 0">
+          <div style="width:80%;height:100%;max-height:180px;background:${accent}18;border:1px dashed ${accent}40;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:11px;color:${accent}88;font-family:'${fb}',sans-serif">Immagine</span>
+          </div>
+        </div>
+        <div style="text-align:${ta}">
+          <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
+        </div>
+      </div>`;
+  } else if (layout === 'split') {
+    content = `
+      <div style="position:relative;z-index:1;padding:50px 30px 40px;display:flex;gap:16px;width:100%">
+        <div style="flex:1;text-align:${ta}">
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
           <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
         </div>
-        ${layout==='split'?`<div style="width:40%;background:${accent}20;border-radius:8px"></div>`:''}
+        <div style="width:40%;background:${accent}20;border-radius:8px"></div>
+      </div>`;
+  } else {
+    // Default: centered / other layouts
+    content = `
+      <div style="position:relative;z-index:1;padding:50px 30px 40px;text-align:${ta};width:100%">
+        <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
+        <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
       </div>`;
   }
 
-  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:4px">${imgTag}${logoHtml}${authorHtml}${content}</div>`;
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:${alignItems};justify-content:center;border-radius:4px">${imgTag}${logoHtml}${authorHtml}${content}</div>`;
 }
 
 // Capture a slide HTML element to PNG base64 via html2canvas
