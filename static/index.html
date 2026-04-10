@@ -548,7 +548,8 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <div class="form-group">
         <label class="form-label">Palette Colori</label>
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="toggle-btn active" onclick="showPaletteTab('dark',this)">Preset Dark</button>
+          <button class="toggle-btn" id="palTabBrand" onclick="showPaletteTab('brand',this)">Brand</button>
+          <button class="toggle-btn" onclick="showPaletteTab('dark',this)">Preset Dark</button>
           <button class="toggle-btn" onclick="showPaletteTab('light',this)">Preset Light</button>
           <button class="toggle-btn" onclick="showPaletteTab('custom',this)">Personalizza</button>
         </div>
@@ -1350,6 +1351,20 @@ function showPaletteTab(tab, btn) {
   btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const area = document.getElementById('palettePresetsArea');
+  if (tab === 'brand') {
+    if (state.colors.length) {
+      area.innerHTML = `
+        <div style="margin-top:8px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            ${state.colors.map((c, i) => `<div style="text-align:center"><div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div><div class="color-hex">${c}</div></div>`).join('')}
+          </div>
+          <p class="form-hint" style="margin-top:8px">Palette estratta dal brand — clicca su un colore per modificarlo</p>
+        </div>`;
+    } else {
+      area.innerHTML = '<p class="form-hint" style="margin-top:8px">Nessuna palette brand definita. Torna alla fase 1 per importare da URL o immagine.</p>';
+    }
+    return;
+  }
   if (tab === 'custom') {
     area.innerHTML = '<div class="palette-row" id="labPalette" style="margin-top:8px"></div><button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addLabColor()">+ Colore</button>';
     renderLabPalette();
@@ -1405,8 +1420,12 @@ function initDesignBlock() {
   lp.innerHTML = LAYOUTS.map(l => `
     <div class="layout-preset${l.toLowerCase()===state.design.layout?' active':''}" onclick="selectLayout('${l.toLowerCase()}',this)">${l}</div>`).join('');
 
-  // Default palette tab
-  showPaletteTab('dark', document.querySelector('#sec-lab .toggle-btn'));
+  // Default palette tab — show brand palette if available
+  if (state.colors.length) {
+    showPaletteTab('brand', document.getElementById('palTabBrand'));
+  } else {
+    showPaletteTab('dark', document.querySelector('#sec-lab .toggle-btn:nth-child(2)'));
+  }
 }
 
 function selectFont(idx, el) {
