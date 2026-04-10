@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Content Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&family=Montserrat:wght@400;600;700&family=DM+Serif+Display&family=Raleway:wght@400;600;700&family=Lora:wght@400;700&family=Source+Sans+3:wght@400;600&family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Roboto:wght@400;500&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0a;--surface:#141414;--border:#222;--border-light:#333;--accent:#FF4500;--accent-hover:#e63e00;--text:#e0e0e0;--text-dim:#888;--text-bright:#fff;--radius:8px;--radius-sm:6px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow:hidden}
+input,textarea,select,button{font-family:inherit;font-size:inherit}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+
+/* Sidebar */
+.sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:fixed;left:0;top:0;z-index:100}
+.sidebar-logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.sidebar-logo .ai{color:var(--accent);font-weight:700}
+.sidebar-nav{flex:1;padding:16px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:all .2s;font-size:13px;color:var(--text-dim);position:relative}
+.nav-item:hover{background:rgba(255,255,255,.03);color:var(--text)}
+.nav-item.active{color:var(--text-bright);background:rgba(255,69,0,.08)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:0 2px 2px 0}
+.nav-item.completed .dot{background:var(--accent)}
+.nav-item.active .dot{background:var(--accent);box-shadow:0 0 8px rgba(255,69,0,.4)}
+.dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border-light);flex-shrink:0}
+.nav-item.completed .dot{border-color:var(--accent)}
+.nav-item.active .dot{border-color:var(--accent)}
+.nav-sub{padding-left:34px;font-size:12px}
+.sidebar-bottom{padding:12px 16px;border-top:1px solid var(--border)}
+.btn-new-project{width:100%;padding:8px;background:transparent;border:1px solid var(--border-light);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .2s}
+.btn-new-project:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Main */
+.main{margin-left:220px;flex:1;height:100vh;overflow-y:auto;padding:32px 40px}
+
+/* Buttons */
+.btn{padding:10px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;border:none;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:transparent;border:1px solid var(--border-light);color:var(--text)}.btn-secondary:hover{border-color:var(--text-dim);color:var(--text-bright)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Form */
+.form-group{margin-bottom:20px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-input,.form-textarea{width:100%;background:#1a1a1a;border:1px solid var(--border-light);color:var(--text);padding:10px 12px;border-radius:var(--radius-sm);font-size:14px;transition:border-color .2s}
+.form-input:focus,.form-textarea:focus{outline:none;border-color:var(--accent)}
+.form-textarea{resize:vertical;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-hint{font-size:11px;color:var(--text-dim);margin-top:4px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+
+/* Tags */
+.tag-container{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;background:#1a1a1a;border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:6px 8px;cursor:text}
+.tag{display:inline-flex;align-items:center;gap:4px;background:rgba(255,69,0,.15);color:var(--accent);padding:3px 8px;border-radius:4px;font-size:12px}
+.tag button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;line-height:1;padding:0}
+.tag-input{background:none;border:none;color:var(--text);outline:none;flex:1;min-width:100px;font-size:13px}
+
+/* Color palette */
+.palette-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.color-swatch{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);cursor:pointer;position:relative}
+.color-swatch.active{border-color:var(--accent)}
+.color-hex{font-size:10px;color:var(--text-dim);text-align:center;margin-top:2px}
+
+/* Section headers */
+.section-title{font-size:22px;font-weight:600;color:var(--text-bright);margin-bottom:4px}
+.section-subtitle{font-size:13px;color:var(--text-dim);margin-bottom:24px}
+
+/* Drop area */
+.drop-area{border:2px dashed var(--border-light);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(26,26,26,.5)}
+.drop-area:hover,.drop-area.dragover{border-color:var(--accent);background:rgba(255,69,0,.03)}
+.drop-area-text{font-size:13px;color:var(--text-dim)}
+.drop-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center}
+.drop-thumb{width:64px;height:64px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
+
+/* Pillar card */
+.pillar-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;transition:all .2s}
+.pillar-header{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer}
+.pillar-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.pillar-name{font-weight:600;font-size:14px;color:var(--text-bright);flex:1}
+.pillar-subtitle{font-size:12px;color:var(--text-dim)}
+.pillar-count{font-size:11px;color:var(--text-dim);margin-left:auto}
+.pillar-toggle{color:var(--text-dim);font-size:12px;transition:transform .2s}
+.pillar-card.open .pillar-toggle{transform:rotate(180deg)}
+.pillar-body{display:none;padding:0 16px 14px;border-top:1px solid var(--border)}
+.pillar-card.open .pillar-body{display:block}
+.angle-item{padding:6px 0;font-size:13px;color:var(--text);border-bottom:1px solid rgba(255,255,255,.03)}
+
+/* Calendar table */
+.cal-table{width:100%;border-collapse:collapse;font-size:13px}
+.cal-table th{text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;color:var(--text-dim);border-bottom:1px solid var(--border);font-weight:500;letter-spacing:.5px}
+.cal-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+.cal-table tr:hover td{background:rgba(255,255,255,.02)}
+.week-header td{background:rgba(255,69,0,.05)!important;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--accent);letter-spacing:.5px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-educativo{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge-storytelling{background:rgba(168,85,247,.15);color:#c084fc}
+.badge-engagement{background:rgba(234,179,8,.15);color:#facc15}
+.badge-social_proof{background:rgba(34,197,94,.15);color:#4ade80}
+.badge-ispirazionale{background:rgba(236,72,153,.15);color:#f472b6}
+.badge-vendita{background:rgba(239,68,68,.15);color:#f87171}
+.badge-intrattenimento{background:rgba(251,146,60,.15);color:#fb923c}
+.badge-autorita{background:rgba(99,102,241,.15);color:#818cf8}
+.badge-community{background:rgba(20,184,166,.15);color:#2dd4bf}
+.format-select{background:#1a1a1a;border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:12px}
+
+/* Toggle buttons */
+.toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+.toggle-btn{padding:6px 14px;border:1px solid var(--border-light);background:transparent;color:var(--text-dim);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .2s}
+.toggle-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.toggle-btn:hover:not(.active){border-color:var(--text-dim);color:var(--text)}
+
+/* Day toggles */
+.day-toggles{display:flex;gap:4px}
+.day-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border-light);background:transparent;color:var(--text-dim);cursor:pointer;font-size:11px;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.day-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Lab */
+.lab-header{display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.lab-nav{display:flex;align-items:center;gap:8px}
+.lab-nav button{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:4px 8px}
+.lab-nav button:hover{color:var(--text-bright)}
+.lab-title{font-size:16px;font-weight:600;color:var(--text-bright);flex:1}
+.lab-badge{font-size:11px}
+.aspect-selector{display:flex;gap:4px}
+.aspect-btn{padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:4px;cursor:pointer;font-size:11px}
+.aspect-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Expandable blocks */
+.block{margin-bottom:12px}
+.block-header{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.block-header:hover{border-color:var(--border-light)}
+.block-header.open{border-radius:var(--radius) var(--radius) 0 0;border-bottom-color:transparent}
+.block-num{font-size:12px;font-weight:600;color:var(--accent)}
+.block-title{font-size:14px;font-weight:500;color:var(--text-bright);flex:1}
+.block-arrow{color:var(--text-dim);transition:transform .2s;font-size:12px}
+.block-header.open .block-arrow{transform:rotate(180deg)}
+.block-content{display:none;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:20px}
+.block-header.open+.block-content{display:block}
+
+/* Slide card */
+.slide-card{background:#1a1a1a;border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px}
+.slide-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.slide-card-num{font-size:11px;font-weight:600;color:var(--accent)}
+.slide-card-type{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,69,0,.1);color:var(--accent)}
+.slide-editable{width:100%;background:transparent;border:1px solid transparent;color:var(--text);padding:4px 6px;border-radius:4px;font-size:13px;transition:border-color .2s}
+.slide-editable:hover{border-color:var(--border)}
+.slide-editable:focus{outline:none;border-color:var(--accent);background:rgba(26,26,26,.8)}
+.slide-heading{font-weight:600;font-size:15px;color:var(--text-bright)}
+
+/* Preview grid */
+.preview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.preview-thumb{aspect-ratio:4/5;background:#1a1a1a;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px;font-size:11px;text-align:center;transition:all .2s}
+.preview-thumb:hover{border-color:var(--accent)}
+.preview-thumb .thumb-label{position:absolute;top:6px;left:6px;font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px}
+
+/* Lightbox */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;justify-content:center;align-items:center}
+.lightbox.open{display:flex}
+.lightbox-inner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto}
+.lightbox-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer}
+
+/* Status indicators */
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.status-todo{background:#ef4444}
+.status-copy{background:#eab308}
+.status-done{background:#22c55e}
+
+/* Loading */
+.loading{display:inline-flex;align-items:center;gap:8px;color:var(--text-dim);font-size:13px}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Progress bar */
+.progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:var(--accent);transition:width .3s;border-radius:2px}
+
+/* Gallery */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all .2s}
+.gallery-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.gallery-thumb{aspect-ratio:4/5;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
+.gallery-info{padding:12px}
+.gallery-topic{font-size:13px;font-weight:500;color:var(--text-bright)}
+.gallery-meta{font-size:11px;color:var(--text-dim);margin-top:4px}
+
+/* Preset palette */
+.palette-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.palette-preset{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;cursor:pointer;transition:all .2s;text-align:center}
+.palette-preset:hover,.palette-preset.active{border-color:var(--accent)}
+.palette-preset-colors{display:flex;gap:2px;justify-content:center;margin-bottom:4px}
+.palette-preset-colors span{width:16px;height:16px;border-radius:50%;display:block}
+.palette-preset-name{font-size:10px;color:var(--text-dim)}
+
+/* Font buttons */
+.font-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.font-preset{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;transition:all .2s;text-align:center}
+.font-preset:hover,.font-preset.active{border-color:var(--accent)}
+.font-preset-heading{font-size:14px;font-weight:700}
+.font-preset-body{font-size:11px;color:var(--text-dim)}
+
+/* Layout buttons */
+.layout-presets{display:flex;gap:6px;flex-wrap:wrap}
+.layout-preset{padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;color:var(--text-dim);transition:all .2s}
+.layout-preset:hover,.layout-preset.active{border-color:var(--accent);color:var(--text-bright)}
+
+/* Slider */
+.size-slider{display:flex;align-items:center;gap:8px}
+.size-slider button{width:28px;height:28px;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:4px;cursor:pointer;font-size:14px}
+.size-slider span{font-size:12px;color:var(--text-dim);min-width:40px;text-align:center}
+
+/* Responsive hide */
+.hidden{display:none!important}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;font-size:13px;z-index:2000;transform:translateY(100px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:#ef4444;color:#f87171}
+.toast.success{border-color:#22c55e;color:#4ade80}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo"><span class="ai">AI</span> Content Factory</div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-section="brand" onclick="goSection('brand')">
+      <span class="dot"></span>01 Brand Intelligence
+    </div>
+    <div class="nav-item" data-section="pillars" onclick="goSection('pillars')">
+      <span class="dot"></span>02 Pillars & Calendario
+    </div>
+    <div class="nav-item" data-section="lab" onclick="goSection('lab')">
+      <span class="dot"></span>03 Laboratorio Contenuti
+    </div>
+    <div class="nav-item nav-sub" data-section="gallery" onclick="goSection('gallery')">
+      Galleria
+    </div>
+  </div>
+  <div class="sidebar-bottom">
+    <button class="btn-new-project" onclick="newProject()">+ Nuovo Progetto</button>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="main" id="mainContent">
+
+<!-- ============================================================ -->
+<!-- SECTION 01: Brand Intelligence -->
+<!-- ============================================================ -->
+<div id="sec-brand" class="section">
+  <h1 class="section-title">Brand Intelligence</h1>
+  <p class="section-subtitle">Compila i dati del brand per generare pillar e calendario editoriale</p>
+
+  <div class="card" style="max-width:780px">
+    <div class="form-group">
+      <label class="form-label">Nicchia / Prodotto *</label>
+      <textarea class="form-textarea" id="fNiche" rows="2" placeholder="Es: Corso online per freelance che vogliono passare a €5k/mese"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">USP — Unique Selling Proposition *</label>
+      <textarea class="form-textarea" id="fUsp" rows="3" placeholder="Es: Metodo validato in 90 giorni con garanzia risultati, senza ads"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tone of Voice</label>
+      <textarea class="form-textarea" id="fTone" rows="2" placeholder="Es: Diretto, pratico, empatico. Mai aggressivo. Come un mentore esperto"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Target Audience</label>
+      <textarea class="form-textarea" id="fTarget" rows="2" placeholder="Es: Freelance 25-40 anni, reddito instabile, vuole sicurezza economica"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Heading Font</label>
+        <input class="form-input" id="fHeadingFont" value="Poppins" placeholder="Poppins">
+        <div style="margin-top:6px;font-size:16px;font-weight:700" id="previewHeading">Anteprima Heading</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Body Font</label>
+        <input class="form-input" id="fBodyFont" value="DM Sans" placeholder="DM Sans">
+        <div style="margin-top:6px;font-size:14px" id="previewBody">Anteprima testo body</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Profilo Instagram</label>
+      <input class="form-input" id="fInstagram" placeholder="@tuobrand">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Keywords</label>
+      <div class="tag-container" id="tagContainer" onclick="document.getElementById('tagInput').focus()">
+        <input class="tag-input" id="tagInput" placeholder="Aggiungi keyword..." onkeydown="handleTagKey(event)">
+      </div>
+      <div class="form-hint">Digita e premi Enter per aggiungere, X per rimuovere</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Color Palette</label>
+      <div class="palette-row" id="paletteRow"></div>
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addColor()">+ Colore</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Immagine di riferimento palette</label>
+      <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('paletteFileInput').click()">
+        <div class="drop-area-text">Trascina o clicca per caricare un'immagine da cui estrarre la palette</div>
+        <div class="drop-thumbs" id="paletteThumbs"></div>
+        <input type="file" id="paletteFileInput" accept="image/*" style="display:none" onchange="handlePaletteFile(event)">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Immagini di riferimento brand</label>
+      <div class="drop-area" id="dropRef" ondrop="handleRefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('refFileInput').click()">
+        <div class="drop-area-text">Foto del prodotto, autore, stile visivo — usate come reference per i contenuti</div>
+        <div class="drop-thumbs" id="refThumbs"></div>
+        <input type="file" id="refFileInput" accept="image/*" multiple style="display:none" onchange="handleRefFiles(event)">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Logo brand</label>
+      <input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:8px">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note aggiuntive</label>
+      <textarea class="form-textarea" id="fNotes" rows="3" placeholder="Es: Non parlare mai di prezzi nella prima settimana. Evitare tono aggressivo..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Autore / Volto del Brand</label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="authorType" value="photo" checked> Foto reale
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="authorType" value="faceless"> Brand faceless — personaggio AI
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="authorType" value="product"> Prodotto come visual principale
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="btn btn-primary" id="btnGenPillars" onclick="generatePillars()">Genera Pilastri &rarr;</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('csvImport').click()">&uarr; Importa Calendario CSV</button>
+      <input type="file" id="csvImport" accept=".csv" style="display:none" onchange="importCSV(event)">
+      <div class="loading hidden" id="brandLoading"><div class="spinner"></div><span>Analisi brand in corso... claude-sonnet</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 02: Pillars & Calendario -->
+<!-- ============================================================ -->
+<div id="sec-pillars" class="section hidden">
+  <h1 class="section-title">Pillars & Calendario</h1>
+  <p class="section-subtitle">Pillar editoriali generati e configurazione del calendario</p>
+
+  <!-- Pillars list -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <h3 style="font-size:15px;font-weight:600;color:var(--text-bright)">Pillar Editoriali</h3>
+    <button class="btn btn-sm btn-secondary" onclick="regeneratePillars()">Rigenera</button>
+  </div>
+  <div id="pillarsList"></div>
+
+  <!-- Calendar config -->
+  <div class="card" style="margin-top:24px">
+    <h3 style="font-size:15px;font-weight:600;color:var(--text-bright);margin-bottom:16px">Configuratore Calendario</h3>
+
+    <div class="form-group">
+      <label class="form-label">Durata</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" onclick="setDuration(7,this)">Settimanale (7gg)</button>
+        <button class="toggle-btn active" onclick="setDuration(30,this)">Mensile (30gg)</button>
+        <button class="toggle-btn" onclick="setDuration(90,this)">Trimestrale (90gg)</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Frequenza</label>
+      <div class="toggle-group" style="margin-bottom:12px">
+        <button class="toggle-btn" onclick="setFrequency(3,this)">3x/sett</button>
+        <button class="toggle-btn active" onclick="setFrequency(5,this)">5x/sett</button>
+        <button class="toggle-btn" onclick="setFrequency(7,this)">Ogni giorno</button>
+        <button class="toggle-btn" onclick="setFrequency(14,this)">2 al giorno</button>
+      </div>
+      <label class="form-label" style="margin-top:12px">Giorni attivi</label>
+      <div class="day-toggles">
+        <button class="day-btn" data-day="0" onclick="toggleDay(this)">Dom</button>
+        <button class="day-btn active" data-day="1" onclick="toggleDay(this)">Lun</button>
+        <button class="day-btn active" data-day="2" onclick="toggleDay(this)">Mar</button>
+        <button class="day-btn active" data-day="3" onclick="toggleDay(this)">Mer</button>
+        <button class="day-btn active" data-day="4" onclick="toggleDay(this)">Gio</button>
+        <button class="day-btn active" data-day="5" onclick="toggleDay(this)">Ven</button>
+        <button class="day-btn" data-day="6" onclick="toggleDay(this)">Sab</button>
+      </div>
+      <div class="form-hint" id="calSummary" style="margin-top:8px"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Mix Contenuti</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" data-mix="bilanciato" onclick="setMix(this)">Mix Bilanciato</button>
+        <button class="toggle-btn" data-mix="crescita" onclick="setMix(this)">Crescita Rapida</button>
+        <button class="toggle-btn" data-mix="autorita" onclick="setMix(this)">Autorit&agrave; + Vendita</button>
+        <button class="toggle-btn" data-mix="educativo" onclick="setMix(this)">Educativo Puro</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note aggiuntive calendario</label>
+      <textarea class="form-textarea" id="fCalNotes" rows="3" placeholder="Es: Lancio nuovo prodotto il 15 marzo, i post di quella settimana devono essere promozionali..."></textarea>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center">
+      <button class="btn btn-primary" onclick="generateCalendar()">Genera Calendario</button>
+      <div class="loading hidden" id="calLoading"><div class="spinner"></div><span>Generazione calendario... claude-sonnet</span></div>
+    </div>
+  </div>
+
+  <!-- Calendar view -->
+  <div id="calendarView" class="hidden" style="margin-top:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;color:var(--text-bright)">Calendario Editoriale</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-secondary" onclick="exportCalCSV()">CSV &darr;</button>
+        <button class="btn btn-sm btn-secondary" onclick="exportCalJSON()">JSON &darr;</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="cal-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAllCal" onchange="toggleAllCal(this)"></th>
+            <th>Data</th>
+            <th>Pillar</th>
+            <th>Topic</th>
+            <th>Tipo</th>
+            <th>Formato</th>
+          </tr>
+        </thead>
+        <tbody id="calBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:12px">
+      <button class="btn btn-primary" onclick="goToLab()">Seleziona contenuti da generare &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 03: Laboratorio Contenuti -->
+<!-- ============================================================ -->
+<div id="sec-lab" class="section hidden">
+  <!-- Lab header -->
+  <div class="lab-header">
+    <div class="lab-nav">
+      <button onclick="labPrev()">&larr;</button>
+      <span id="labCounter">Post 1/1</span>
+      <button onclick="labNext()">&rarr;</button>
+    </div>
+    <div class="lab-title" id="labTitle">—</div>
+    <div id="labBadge"></div>
+    <div class="aspect-selector">
+      <button class="aspect-btn" onclick="setAspect('1:1',this)">1:1</button>
+      <button class="aspect-btn active" onclick="setAspect('4:5',this)">4:5</button>
+      <button class="aspect-btn" onclick="setAspect('9:16',this)">9:16</button>
+      <button class="aspect-btn" onclick="setAspect('16:9',this)">16:9</button>
+    </div>
+  </div>
+
+  <!-- Block 1: Copy -->
+  <div class="block">
+    <div class="block-header open" onclick="toggleBlock(this)">
+      <span class="block-num">01</span>
+      <span class="block-title">Copy</span>
+      <span class="block-arrow">&#9660;</span>
+    </div>
+    <div class="block-content" id="copyBlock">
+      <div class="loading" id="copyLoading"><div class="spinner"></div><span>Claude sta creando il copy... claude-haiku</span></div>
+      <div id="slidesCards"></div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Full Copy Block</label>
+        <textarea class="form-textarea" id="fullCopyBlock" rows="6"></textarea>
+      </div>
+      <div id="copyMeta" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px"></div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Caption Instagram</label>
+        <textarea class="form-textarea" id="captionArea" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Script Reel</label>
+        <textarea class="form-textarea" id="reelArea" rows="4"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <div class="form-group" style="flex:1">
+          <textarea class="form-textarea" id="copyNotes" rows="2" placeholder="Note per rigenerare il copy..."></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="regenerateCopy()">Rigenera Copy</button>
+        <button class="btn btn-secondary" onclick="generateReelScript()">Converti in Script Reel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Block 2: Design & Layout -->
+  <div class="block">
+    <div class="block-header" onclick="toggleBlock(this)">
+      <span class="block-num">02</span>
+      <span class="block-title">Design & Layout</span>
+      <span class="block-arrow">&#9660;</span>
+    </div>
+    <div class="block-content">
+      <div class="form-group">
+        <label class="form-label">Palette Colori</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="toggle-btn active" onclick="showPaletteTab('dark',this)">Preset Dark</button>
+          <button class="toggle-btn" onclick="showPaletteTab('light',this)">Preset Light</button>
+          <button class="toggle-btn" onclick="showPaletteTab('custom',this)">Personalizza</button>
+        </div>
+        <div id="palettePresetsArea"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Font</label>
+        <div class="font-presets" id="fontPresets"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Layout</label>
+        <div class="layout-presets" id="layoutPresets"></div>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="form-group">
+          <label class="form-label">Title Size</label>
+          <div class="size-slider">
+            <button onclick="adjustSize('title',-5)">-</button>
+            <span id="titleSizeVal">100%</span>
+            <button onclick="adjustSize('title',5)">+</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sub Size</label>
+          <div class="size-slider">
+            <button onclick="adjustSize('sub',-5)">-</button>
+            <span id="subSizeVal">100%</span>
+            <button onclick="adjustSize('sub',5)">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Block 3: Preview -->
+  <div class="block">
+    <div class="block-header" onclick="toggleBlock(this)">
+      <span class="block-num">03</span>
+      <span class="block-title">Preview Slide (HTML)</span>
+      <span class="block-arrow">&#9660;</span>
+    </div>
+    <div class="block-content">
+      <div class="preview-grid" id="previewGrid"></div>
+      <p class="form-hint" style="margin-top:8px">Le immagini nelle slide sono placeholder — verranno generate da Gemini nel passaggio successivo</p>
+    </div>
+  </div>
+
+  <!-- Block 4: Build con Gemini -->
+  <div class="block">
+    <div class="block-header" onclick="toggleBlock(this)">
+      <span class="block-num">04</span>
+      <span class="block-title">Build con Gemini</span>
+      <span class="block-arrow">&#9660;</span>
+    </div>
+    <div class="block-content">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Modello: Nano Banana 2 (gemini-2.0-flash-exp)</p>
+      <div id="geminiSlideList" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="btn btn-primary" onclick="generateImages()">Genera Immagini</button>
+        <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()">Scarica ZIP</button>
+        <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generando slide 1/6...</span></div>
+      </div>
+      <div class="progress-bar hidden" id="imgProgressBar" style="margin-top:8px"><div class="progress-fill" id="imgProgressFill"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: Gallery -->
+<!-- ============================================================ -->
+<div id="sec-gallery" class="section hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <h1 class="section-title">Galleria</h1>
+      <p class="section-subtitle">Tutti i post generati</p>
+    </div>
+    <button class="btn btn-secondary" onclick="downloadAll()">Scarica tutti</button>
+  </div>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</div>
+
+</div><!-- /main -->
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <div class="lightbox-inner" id="lightboxContent"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =================================================================
+// STATE
+// =================================================================
+let state = {
+  slug: '',
+  brand: {},
+  keywords: [],
+  colors: ['#FF4500','#1a1a1a','#ffffff','#888888'],
+  pillars: [],
+  calendar: [],
+  selectedPosts: [],
+  currentPostIdx: 0,
+  currentCopy: null,
+  aspect: '4:5',
+  duration: 30,
+  frequency: {days_per_week: 5, posts_per_day: 1, selected_days: [1,2,3,4,5]},
+  mix: 'bilanciato',
+  design: {
+    palette: null,
+    fontHeading: 'Poppins',
+    fontBody: 'DM Sans',
+    layout: 'centered',
+    titleSize: 100,
+    subSize: 100,
+  },
+  refImages: [],
+  paletteImage: null,
+};
+
+// =================================================================
+// NAVIGATION
+// =================================================================
+function goSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+  document.getElementById('sec-' + name).classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add('active');
+  if (name === 'gallery') loadGallery();
+  if (name === 'lab' && state.selectedPosts.length && !state.currentCopy) loadLabPost();
+}
+
+function newProject() {
+  state = {slug:'',brand:{},keywords:[],colors:['#FF4500','#1a1a1a','#ffffff','#888888'],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
+  ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
+  goSection('brand');
+  renderPalette();
+  toast('Nuovo progetto creato', 'success');
+}
+
+// =================================================================
+// TAGS
+// =================================================================
+function handleTagKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val && !state.keywords.includes(val)) {
+      state.keywords.push(val);
+      renderTags();
+    }
+    e.target.value = '';
+  }
+}
+function renderTags() {
+  const c = document.getElementById('tagContainer');
+  c.querySelectorAll('.tag').forEach(t => t.remove());
+  const input = document.getElementById('tagInput');
+  state.keywords.forEach((kw, i) => {
+    const t = document.createElement('span');
+    t.className = 'tag';
+    t.innerHTML = `${kw} <button onclick="removeTag(${i})">&times;</button>`;
+    c.insertBefore(t, input);
+  });
+}
+function removeTag(i) {
+  state.keywords.splice(i, 1);
+  renderTags();
+}
+
+// =================================================================
+// PALETTE
+// =================================================================
+function renderPalette() {
+  const row = document.getElementById('paletteRow');
+  row.innerHTML = '';
+  state.colors.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.style.textAlign = 'center';
+    div.innerHTML = `<div class="color-swatch" style="background:${c}" onclick="editColor(${i})"></div><div class="color-hex">${c}</div>`;
+    row.appendChild(div);
+  });
+}
+function addColor() {
+  state.colors.push('#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'));
+  renderPalette();
+}
+function editColor(i) {
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = state.colors[i];
+  input.onchange = () => { state.colors[i] = input.value; renderPalette(); };
+  input.click();
+}
+
+// =================================================================
+// DRAG & DROP
+// =================================================================
+function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function handleDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
+
+function handlePaletteDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processPaletteImage(file);
+}
+function handlePaletteFile(e) {
+  if (e.target.files[0]) processPaletteImage(e.target.files[0]);
+}
+function processPaletteImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    state.paletteImage = e.target.result;
+    document.getElementById('paletteThumbs').innerHTML = `<img class="drop-thumb" src="${e.target.result}"><button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="extractPalette()">Estrai palette</button>`;
+  };
+  reader.readAsDataURL(file);
+}
+async function extractPalette() {
+  if (!state.paletteImage) return;
+  const b64 = state.paletteImage.split(',')[1];
+  toast('Estrazione palette in corso...');
+  try {
+    const r = await api('/api/extract-palette', {image: b64});
+    if (r.colors?.length) {
+      state.colors = r.colors.map(c => c.hex);
+      renderPalette();
+      toast('Palette estratta!', 'success');
+    }
+  } catch(e) { toast('Errore estrazione: ' + e.message, 'error'); }
+}
+
+function handleRefDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  [...e.dataTransfer.files].forEach(f => processRefImage(f));
+}
+function handleRefFiles(e) {
+  [...e.target.files].forEach(f => processRefImage(f));
+}
+function processRefImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    state.refImages.push(e.target.result);
+    renderRefThumbs();
+  };
+  reader.readAsDataURL(file);
+}
+function renderRefThumbs() {
+  document.getElementById('refThumbs').innerHTML = state.refImages.map(src => `<img class="drop-thumb" src="${src}">`).join('');
+}
+
+// =================================================================
+// FONT PREVIEW
+// =================================================================
+document.getElementById('fHeadingFont').addEventListener('input', e => {
+  document.getElementById('previewHeading').style.fontFamily = e.target.value + ', sans-serif';
+  state.design.fontHeading = e.target.value;
+});
+document.getElementById('fBodyFont').addEventListener('input', e => {
+  document.getElementById('previewBody').style.fontFamily = e.target.value + ', sans-serif';
+  state.design.fontBody = e.target.value;
+});
+
+// =================================================================
+// API HELPER
+// =================================================================
+async function api(url, data, method='POST') {
+  const opts = {method, headers: {'Content-Type':'application/json'}};
+  if (data) opts.body = JSON.stringify(data);
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t);
+  }
+  return r.json();
+}
+
+// =================================================================
+// BRAND → PILLARS FLOW
+// =================================================================
+async function generatePillars() {
+  const niche = document.getElementById('fNiche').value.trim();
+  const usp = document.getElementById('fUsp').value.trim();
+  if (!niche || !usp) { toast('Compila nicchia e USP', 'error'); return; }
+
+  const brandData = {
+    niche, usp,
+    tone: document.getElementById('fTone').value,
+    target: document.getElementById('fTarget').value,
+    instagram: document.getElementById('fInstagram').value,
+    keywords: state.keywords,
+    colors: state.colors,
+    heading_font: document.getElementById('fHeadingFont').value,
+    body_font: document.getElementById('fBodyFont').value,
+    notes: document.getElementById('fNotes').value,
+    author_type: document.querySelector('input[name="authorType"]:checked')?.value || 'photo',
+  };
+
+  const loading = document.getElementById('brandLoading');
+  const btn = document.getElementById('btnGenPillars');
+  loading.classList.remove('hidden');
+  btn.disabled = true;
+
+  try {
+    // 1. Analyze brand
+    loading.querySelector('span').textContent = 'Analisi brand in corso... claude-sonnet';
+    const analysis = await api('/api/analyze-brand', brandData);
+    state.slug = analysis.slug;
+    state.brand = {...brandData, slug: analysis.slug, analysis: analysis.analysis};
+
+    // Add suggested keywords
+    if (analysis.analysis?.suggested_keywords) {
+      analysis.analysis.suggested_keywords.forEach(kw => {
+        if (!state.keywords.includes(kw)) state.keywords.push(kw);
+      });
+      renderTags();
+    }
+
+    // 2. Research keywords
+    loading.querySelector('span').textContent = 'Ricerca keywords... serpapi/jina';
+    const research = await api('/api/research-keywords', {keywords: state.keywords.slice(0, 5)});
+
+    // 3. Generate pillars
+    loading.querySelector('span').textContent = 'Generazione pillar... claude-sonnet';
+    const pillarsResult = await api('/api/generate-pillars', {brand_data: state.brand, research_results: research});
+    state.pillars = pillarsResult.pillars || [];
+
+    // Mark step completed, go to section 2
+    document.querySelector('.nav-item[data-section="brand"]').classList.add('completed');
+    goSection('pillars');
+    renderPillars();
+    updateCalSummary();
+    toast('Pillar generati!', 'success');
+  } catch(e) {
+    toast('Errore: ' + e.message, 'error');
+  } finally {
+    loading.classList.add('hidden');
+    btn.disabled = false;
+  }
+}
+
+// =================================================================
+// CSV IMPORT
+// =================================================================
+async function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const r = await fetch('/api/import-calendar', {method:'POST', body: formData});
+    const data = await r.json();
+    state.calendar = data.entries || [];
+    state.selectedPosts = [...state.calendar];
+    document.querySelector('.nav-item[data-section="brand"]').classList.add('completed');
+    document.querySelector('.nav-item[data-section="pillars"]').classList.add('completed');
+    goSection('lab');
+    loadLabPost();
+    toast('Calendario importato!', 'success');
+  } catch(e) {
+    toast('Errore importazione: ' + e.message, 'error');
+  }
+}
+
+// =================================================================
+// PILLARS RENDERING
+// =================================================================
+function renderPillars() {
+  const container = document.getElementById('pillarsList');
+  container.innerHTML = '';
+  state.pillars.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'pillar-card';
+    card.innerHTML = `
+      <div class="pillar-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="pillar-dot" style="background:${p.color || '#FF4500'}"></div>
+        <span class="pillar-name">${p.name}</span>
+        <span class="pillar-subtitle">${p.subtitle || ''}</span>
+        <span class="pillar-count">${(p.angles||[]).length} angles</span>
+        <span class="pillar-toggle">&#9660;</span>
+      </div>
+      <div class="pillar-body">
+        ${(p.angles||[]).map(a => `<div class="angle-item">${a}</div>`).join('')}
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+async function regeneratePillars() {
+  if (!state.brand.niche) { toast('Prima compila il brand', 'error'); return; }
+  toast('Rigenerazione pillar...');
+  try {
+    const research = await api('/api/research-keywords', {keywords: state.keywords.slice(0,5)});
+    const result = await api('/api/generate-pillars', {brand_data: state.brand, research_results: research});
+    state.pillars = result.pillars || [];
+    renderPillars();
+    toast('Pillar rigenerati!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+}
+
+// =================================================================
+// CALENDAR CONFIG
+// =================================================================
+function setDuration(d, btn) {
+  state.duration = d;
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateCalSummary();
+}
+function setFrequency(f, btn) {
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (f <= 7) { state.frequency.days_per_week = f; state.frequency.posts_per_day = 1; }
+  else { state.frequency.days_per_week = 7; state.frequency.posts_per_day = 2; }
+  updateCalSummary();
+}
+function toggleDay(btn) {
+  btn.classList.toggle('active');
+  state.frequency.selected_days = [...document.querySelectorAll('.day-btn.active')].map(b => parseInt(b.dataset.day));
+  state.frequency.days_per_week = state.frequency.selected_days.length;
+  updateCalSummary();
+}
+function setMix(btn) {
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.mix = btn.dataset.mix;
+}
+function updateCalSummary() {
+  const total = Math.floor(state.duration / 7 * state.frequency.days_per_week * state.frequency.posts_per_day);
+  document.getElementById('calSummary').textContent = `~${total} post in ${state.duration} giorni (${state.frequency.days_per_week} giorni/sett, ${state.frequency.posts_per_day} post/giorno)`;
+}
+
+// =================================================================
+// GENERATE CALENDAR
+// =================================================================
+async function generateCalendar() {
+  if (!state.pillars.length) { toast('Prima genera i pillar', 'error'); return; }
+  const loading = document.getElementById('calLoading');
+  loading.classList.remove('hidden');
+  try {
+    const result = await api('/api/generate-calendar', {
+      pillars: state.pillars,
+      duration: state.duration,
+      frequency: state.frequency,
+      mix_preset: state.mix,
+      extra_notes: document.getElementById('fCalNotes').value,
+      brand_data: state.brand,
+    });
+    state.calendar = result.entries || [];
+    renderCalendar();
+    document.getElementById('calendarView').classList.remove('hidden');
+    toast('Calendario generato!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+  finally { loading.classList.add('hidden'); }
+}
+
+function renderCalendar() {
+  const body = document.getElementById('calBody');
+  body.innerHTML = '';
+  let currentWeek = -1;
+  state.calendar.forEach((e, i) => {
+    const d = new Date(e.date);
+    const week = getWeekNumber(d);
+    if (week !== currentWeek) {
+      currentWeek = week;
+      const weekStart = new Date(d); weekStart.setDate(d.getDate() - d.getDay() + 1);
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+      const tr = document.createElement('tr');
+      tr.className = 'week-header';
+      tr.innerHTML = `<td colspan="6">SETTIMANA ${week} (${formatDate(weekStart)} – ${formatDate(weekEnd)})</td>`;
+      body.appendChild(tr);
+    }
+    const tr = document.createElement('tr');
+    const cat = e.content_category || '';
+    tr.innerHTML = `
+      <td><input type="checkbox" class="cal-check" data-idx="${i}" checked></td>
+      <td>${formatDate(d)}</td>
+      <td>${e.pillar}</td>
+      <td style="color:var(--text-bright)">${e.topic}</td>
+      <td><span class="badge badge-${cat}">${e.content_type}</span></td>
+      <td><select class="format-select" onchange="state.calendar[${i}].format=this.value">
+        <option value="carousel" ${e.format==='carousel'?'selected':''}>Carosello</option>
+        <option value="single" ${e.format==='single'?'selected':''}>Post singolo</option>
+      </select></td>`;
+    body.appendChild(tr);
+  });
+}
+
+function toggleAllCal(cb) {
+  document.querySelectorAll('.cal-check').forEach(c => c.checked = cb.checked);
+}
+
+function goToLab() {
+  const checks = document.querySelectorAll('.cal-check');
+  const selected = [];
+  checks.forEach(c => { if (c.checked) selected.push(state.calendar[parseInt(c.dataset.idx)]); });
+  state.selectedPosts = selected.length ? selected : [...state.calendar];
+  state.currentPostIdx = 0;
+  document.querySelector('.nav-item[data-section="pillars"]').classList.add('completed');
+  goSection('lab');
+  loadLabPost();
+}
+
+// =================================================================
+// CALENDAR EXPORT
+// =================================================================
+function exportCalCSV() {
+  let csv = 'date,pillar,topic,format,content_type,content_category,objective,hook,cta\n';
+  state.calendar.forEach(e => {
+    csv += [e.date,e.pillar,`"${e.topic}"`,e.format,e.content_type,e.content_category,`"${e.objective||''}"`,`"${e.hook||''}"`,`"${e.cta||''}"`].join(',') + '\n';
+  });
+  downloadBlob(csv, 'calendario.csv', 'text/csv');
+}
+function exportCalJSON() {
+  downloadBlob(JSON.stringify({entries: state.calendar}, null, 2), 'calendario.json', 'application/json');
+}
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// =================================================================
+// LAB
+// =================================================================
+async function loadLabPost() {
+  const post = state.selectedPosts[state.currentPostIdx];
+  if (!post) return;
+  document.getElementById('labCounter').textContent = `Post ${state.currentPostIdx + 1}/${state.selectedPosts.length}`;
+  document.getElementById('labTitle').textContent = post.topic;
+  document.getElementById('labBadge').innerHTML = `<span class="badge badge-${post.content_category||''}">${post.content_type||''}</span> <span style="font-size:11px;color:var(--text-dim)">${post.date||''}</span>`;
+
+  // Auto-generate copy
+  await generateCopy();
+}
+
+function labPrev() {
+  if (state.currentPostIdx > 0) {
+    state.currentPostIdx--;
+    state.currentCopy = null;
+    loadLabPost();
+  }
+}
+function labNext() {
+  if (state.currentPostIdx < state.selectedPosts.length - 1) {
+    state.currentPostIdx++;
+    state.currentCopy = null;
+    loadLabPost();
+  }
+}
+
+// =================================================================
+// COPY GENERATION
+// =================================================================
+async function generateCopy() {
+  const post = state.selectedPosts[state.currentPostIdx];
+  const loading = document.getElementById('copyLoading');
+  const cards = document.getElementById('slidesCards');
+  loading.classList.remove('hidden');
+  cards.innerHTML = '';
+
+  try {
+    const result = await api('/api/generate-copy', {
+      entry: post,
+      brand_data: state.brand,
+      pillars: state.pillars,
+    });
+    state.currentCopy = result;
+    renderCopy(result);
+    renderPreview();
+    renderGeminiList();
+    toast('Copy generato!', 'success');
+  } catch(e) {
+    toast('Errore copy: ' + e.message, 'error');
+  } finally {
+    loading.classList.add('hidden');
+  }
+}
+
+function renderCopy(data) {
+  const cards = document.getElementById('slidesCards');
+  cards.innerHTML = '';
+  (data.slides || []).forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'slide-card';
+    card.innerHTML = `
+      <div class="slide-card-header">
+        <span class="slide-card-num">SLIDE ${s.index || i+1}</span>
+        <span class="slide-card-type">${s.type}</span>
+      </div>
+      <input class="slide-editable slide-heading" value="${escHtml(s.heading||'')}" onchange="updateSlide(${i},'heading',this.value)">
+      <textarea class="slide-editable" rows="3" onchange="updateSlide(${i},'body',this.value)">${escHtml(s.body||'')}</textarea>`;
+    cards.appendChild(card);
+  });
+
+  // Full copy block
+  const fullText = (data.slides||[]).map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
+  document.getElementById('fullCopyBlock').value = fullText;
+
+  // Meta
+  document.getElementById('copyMeta').innerHTML = `
+    <div><span class="form-label">Layout</span><div style="font-size:13px">${data.layout||'—'}</div></div>
+    <div><span class="form-label">Font</span><div style="font-size:13px">${state.design.fontHeading} + ${state.design.fontBody}</div></div>`;
+
+  document.getElementById('captionArea').value = data.caption || '';
+  document.getElementById('reelArea').value = data.reel_script || '';
+}
+
+function updateSlide(idx, field, val) {
+  if (state.currentCopy?.slides?.[idx]) {
+    state.currentCopy.slides[idx][field] = val;
+    renderPreview();
+  }
+}
+
+async function regenerateCopy() {
+  const notes = document.getElementById('copyNotes').value;
+  if (notes) {
+    state.selectedPosts[state.currentPostIdx].extra_notes = notes;
+  }
+  state.currentCopy = null;
+  await generateCopy();
+}
+
+async function generateReelScript() {
+  if (!state.currentCopy) return;
+  toast('Generazione script reel...');
+  try {
+    const result = await api('/api/generate-reel-script', {
+      slides: state.currentCopy.slides,
+      caption: state.currentCopy.caption,
+      brand_data: state.brand,
+    });
+    document.getElementById('reelArea').value = result.script || '';
+    toast('Script reel generato!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+}
+
+// =================================================================
+// ASPECT RATIO
+// =================================================================
+function setAspect(ratio, btn) {
+  state.aspect = ratio;
+  btn.parentElement.querySelectorAll('.aspect-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+}
+
+// =================================================================
+// DESIGN BLOCK
+// =================================================================
+const PALETTE_PRESETS = {
+  dark: [
+    {name:'Luxury Beige',colors:['#2c2420','#d4a574','#f5e6d3','#8b6914','#1a1410']},
+    {name:'Soft Feminine',colors:['#1a1218','#c77dba','#f0d6ec','#8b4789','#2d1f2b']},
+    {name:'Bold Contrast',colors:['#0a0a0a','#ff4500','#ffffff','#333333','#ff6b35']},
+    {name:'Minimal B&W',colors:['#0a0a0a','#ffffff','#888888','#333333','#cccccc']},
+    {name:'Digital Neon',colors:['#0a0a14','#00ff88','#ff00ff','#0088ff','#1a1a2e']},
+    {name:'Midnight Purple',colors:['#0d0a1a','#7c3aed','#a78bfa','#1e1b4b','#c4b5fd']},
+    {name:'Deep Ocean',colors:['#0a1628','#0ea5e9','#38bdf8','#164e63','#7dd3fc']},
+  ],
+  light: [
+    {name:'Warm Neutral',colors:['#faf8f5','#8b7355','#d4c5a9','#3d3328','#f0ead6']},
+    {name:'Cool Gray',colors:['#f8f9fa','#6b7280','#374151','#e5e7eb','#111827']},
+    {name:'Sage Green',colors:['#f0f5f0','#4a7c59','#8fbc8f','#2d5016','#e8f0e8']},
+    {name:'Warm Coral',colors:['#fff5f5','#e74c3c','#f1948a','#922b21','#fadbd8']},
+    {name:'Soft Lavender',colors:['#f5f3ff','#7c3aed','#a78bfa','#4c1d95','#ede9fe']},
+    {name:'Clean White',colors:['#ffffff','#1a1a1a','#666666','#f0f0f0','#333333']},
+    {name:'Sky Blue',colors:['#f0f9ff','#0284c7','#38bdf8','#0c4a6e','#e0f2fe']},
+  ]
+};
+
+const FONT_PRESETS = [
+  {heading:'Playfair Display',body:'Inter'},
+  {heading:'Montserrat',body:'Open Sans'},
+  {heading:'Poppins',body:'DM Sans'},
+  {heading:'DM Serif Display',body:'DM Sans'},
+  {heading:'Raleway',body:'Roboto'},
+  {heading:'Lora',body:'Source Sans 3'},
+  {heading:'Bebas Neue',body:'Barlow'},
+  {heading:'Space Grotesk',body:'Inter'},
+];
+
+const LAYOUTS = ['Centered','Split','Quote','List','Gradient','Card','Magazine'];
+
+function showPaletteTab(tab, btn) {
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const area = document.getElementById('palettePresetsArea');
+  if (tab === 'custom') {
+    area.innerHTML = '<div class="palette-row" id="labPalette" style="margin-top:8px"></div><button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addLabColor()">+ Colore</button>';
+    renderLabPalette();
+    return;
+  }
+  const presets = PALETTE_PRESETS[tab] || [];
+  area.innerHTML = '<div class="palette-presets">' + presets.map((p, i) => `
+    <div class="palette-preset${state.design.palette===tab+i?' active':''}" onclick="selectPalette('${tab}',${i})">
+      <div class="palette-preset-colors">${p.colors.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
+      <div class="palette-preset-name">${p.name}</div>
+    </div>`).join('') + '</div>';
+}
+
+function selectPalette(tab, idx) {
+  state.design.palette = tab + idx;
+  state.colors = [...PALETTE_PRESETS[tab][idx].colors];
+  document.querySelectorAll('.palette-preset').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderPreview();
+}
+
+function renderLabPalette() {
+  const row = document.getElementById('labPalette');
+  if (!row) return;
+  row.innerHTML = state.colors.map((c, i) => `
+    <div style="text-align:center">
+      <div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div>
+      <div class="color-hex">${c}</div>
+    </div>`).join('');
+}
+function editLabColor(i) {
+  const input = document.createElement('input');
+  input.type = 'color'; input.value = state.colors[i];
+  input.onchange = () => { state.colors[i] = input.value; renderLabPalette(); renderPreview(); };
+  input.click();
+}
+function addLabColor() {
+  state.colors.push('#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'));
+  renderLabPalette();
+}
+
+function initDesignBlock() {
+  // Fonts
+  const fp = document.getElementById('fontPresets');
+  fp.innerHTML = FONT_PRESETS.map((f, i) => `
+    <div class="font-preset${f.heading===state.design.fontHeading?' active':''}" onclick="selectFont(${i},this)">
+      <div class="font-preset-heading" style="font-family:'${f.heading}',sans-serif">${f.heading}</div>
+      <div class="font-preset-body" style="font-family:'${f.body}',sans-serif">${f.body}</div>
+    </div>`).join('');
+
+  // Layouts
+  const lp = document.getElementById('layoutPresets');
+  lp.innerHTML = LAYOUTS.map(l => `
+    <div class="layout-preset${l.toLowerCase()===state.design.layout?' active':''}" onclick="selectLayout('${l.toLowerCase()}',this)">${l}</div>`).join('');
+
+  // Default palette tab
+  showPaletteTab('dark', document.querySelector('#sec-lab .toggle-btn'));
+}
+
+function selectFont(idx, el) {
+  state.design.fontHeading = FONT_PRESETS[idx].heading;
+  state.design.fontBody = FONT_PRESETS[idx].body;
+  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderPreview();
+}
+function selectLayout(layout, el) {
+  state.design.layout = layout;
+  document.querySelectorAll('.layout-preset').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderPreview();
+}
+function adjustSize(type, delta) {
+  if (type === 'title') {
+    state.design.titleSize = Math.max(50, Math.min(200, state.design.titleSize + delta));
+    document.getElementById('titleSizeVal').textContent = state.design.titleSize + '%';
+  } else {
+    state.design.subSize = Math.max(50, Math.min(200, state.design.subSize + delta));
+    document.getElementById('subSizeVal').textContent = state.design.subSize + '%';
+  }
+  renderPreview();
+}
+
+// =================================================================
+// PREVIEW
+// =================================================================
+function getSlideHTML(slide, idx, includeImages=false) {
+  const colors = state.colors;
+  const bg = colors[1] || '#1a1a1a';
+  const accent = colors[0] || '#FF4500';
+  const textColor = colors[2] || '#ffffff';
+  const dim = colors[3] || '#888888';
+  const fh = state.design.fontHeading;
+  const fb = state.design.fontBody;
+  const layout = state.design.layout;
+  const ts = state.design.titleSize / 100;
+  const ss = state.design.subSize / 100;
+
+  const aspectMap = {'1:1':'420px 420px','4:5':'420px 525px','9:16':'420px 747px','16:9':'747px 420px'};
+  const [w, h] = (aspectMap[state.aspect]||'420px 525px').split(' ');
+
+  const imgTag = includeImages && slide.img_b64 ? `<img src="data:image/png;base64,${slide.img_b64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.3;z-index:0">` : '';
+
+  let content = '';
+  if (slide.type === 'hero') {
+    content = `
+      <div style="position:relative;z-index:1;text-align:center;padding:40px 30px">
+        <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin-bottom:16px">${escHtml(slide.heading||'')}</div>
+        <div style="font-family:'${fb}',sans-serif;font-size:${14*ss}px;color:${dim};line-height:1.5">${escHtml(slide.body||'')}</div>
+      </div>`;
+  } else if (slide.type === 'cta') {
+    content = `
+      <div style="position:relative;z-index:1;text-align:center;padding:40px 30px">
+        <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};margin-bottom:12px">${escHtml(slide.heading||'')}</div>
+        <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px">${escHtml(slide.body||'')}</div>
+        <div style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:6px;font-family:'${fb}',sans-serif;font-size:13px;font-weight:600">Scopri di più</div>
+      </div>`;
+  } else {
+    content = `
+      <div style="position:relative;z-index:1;padding:30px;${layout==='split'?'display:flex;gap:16px':''}">
+        <div style="flex:1">
+          <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
+          <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
+        </div>
+        ${layout==='split'?`<div style="width:40%;background:${accent}20;border-radius:8px"></div>`:''}
+      </div>`;
+  }
+
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:4px">${imgTag}${content}</div>`;
+}
+
+function renderPreview() {
+  if (!state.currentCopy?.slides) return;
+  const grid = document.getElementById('previewGrid');
+  grid.innerHTML = '';
+  state.currentCopy.slides.forEach((slide, i) => {
+    const div = document.createElement('div');
+    div.className = 'preview-thumb';
+    div.innerHTML = `<span class="thumb-label">${slide.type}</span>` + getSlideHTML(slide, i).replace(/width:420px/g, 'width:100%').replace(/height:\d+px/g, 'height:100%');
+    div.onclick = () => openLightbox(i);
+    grid.appendChild(div);
+  });
+}
+
+// =================================================================
+// LIGHTBOX
+// =================================================================
+function openLightbox(idx) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  const lb = document.getElementById('lightbox');
+  const content = document.getElementById('lightboxContent');
+  content.innerHTML = `
+    <div style="margin-bottom:16px">${getSlideHTML(slide, idx, true)}</div>
+    <div class="form-group">
+      <label class="form-label">Heading</label>
+      <input class="form-input" value="${escHtml(slide.heading||'')}" onchange="updateSlide(${idx},'heading',this.value);renderPreview()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Body</label>
+      <textarea class="form-textarea" rows="4" onchange="updateSlide(${idx},'body',this.value);renderPreview()">${escHtml(slide.body||'')}</textarea>
+    </div>
+    <button class="btn btn-primary" onclick="closeLightbox()">Applica modifica</button>`;
+  lb.classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+// =================================================================
+// GEMINI IMAGES
+// =================================================================
+function renderGeminiList() {
+  if (!state.currentCopy?.slides) return;
+  const list = document.getElementById('geminiSlideList');
+  list.innerHTML = state.currentCopy.slides.map((s, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
+      <span class="status-dot ${s.img_b64?'status-done':'status-todo'}"></span>
+      <span style="color:var(--text-dim)">Slide ${s.index||i+1}</span>
+      <span style="color:var(--text)">${s.type}</span>
+    </div>`).join('');
+}
+
+async function generateImages() {
+  if (!state.currentCopy?.slides) return;
+  const loading = document.getElementById('imgLoading');
+  const bar = document.getElementById('imgProgressBar');
+  const fill = document.getElementById('imgProgressFill');
+  loading.classList.remove('hidden');
+  bar.classList.remove('hidden');
+
+  const slides = state.currentCopy.slides;
+  const post = state.selectedPosts[state.currentPostIdx];
+
+  for (let i = 0; i < slides.length; i++) {
+    document.getElementById('imgProgress').textContent = `Generando slide ${i+1}/${slides.length}...`;
+    fill.style.width = ((i+1)/slides.length*100) + '%';
+
+    try {
+      const result = await api('/api/generate-images', {
+        slides: [{...slides[i], content_type: post.content_type}],
+        brand_data: state.brand,
+        palette: state.colors,
+      });
+      if (result.slides_with_images?.[0]?.img_b64) {
+        slides[i].img_b64 = result.slides_with_images[0].img_b64;
+      }
+    } catch(e) {
+      console.error('Image gen error:', e);
+    }
+    renderPreview();
+    renderGeminiList();
+  }
+
+  loading.classList.add('hidden');
+  document.getElementById('btnExportZip').classList.remove('hidden');
+  toast('Immagini generate!', 'success');
+}
+
+async function exportZip() {
+  if (!state.slug) { toast('Nessun progetto salvato', 'error'); return; }
+  try {
+    const r = await fetch('/api/export-zip', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({slug: state.slug}),
+    });
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = state.slug + '-export.zip';
+    a.click();
+    toast('ZIP scaricato!', 'success');
+  } catch(e) { toast('Errore export: ' + e.message, 'error'); }
+}
+
+// =================================================================
+// GALLERY
+// =================================================================
+async function loadGallery() {
+  try {
+    const projects = await api('/api/projects', null, 'GET');
+    const grid = document.getElementById('galleryGrid');
+    if (!projects.length) {
+      grid.innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:40px">Nessun progetto ancora. Crea il tuo primo brand!</p>';
+      return;
+    }
+    grid.innerHTML = projects.map(p => `
+      <div class="gallery-card" onclick="loadProject('${p.slug}')">
+        <div class="gallery-thumb">&#128196;</div>
+        <div class="gallery-info">
+          <div class="gallery-topic">${escHtml(p.name)}</div>
+          <div class="gallery-meta">${p.post_count} post &middot; ${p.completed_count} completati</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadProject(slug) {
+  try {
+    const data = await api(`/api/project/${slug}`, null, 'GET');
+    state.slug = slug;
+    state.brand = data.brand_data || {};
+    state.pillars = (data.pillars?.pillars) || data.pillars || [];
+    state.calendar = data.calendar?.entries || [];
+    state.colors = state.brand.colors || state.colors;
+    state.keywords = state.brand.keywords || [];
+
+    // Fill form
+    if (state.brand.niche) document.getElementById('fNiche').value = state.brand.niche;
+    if (state.brand.usp) document.getElementById('fUsp').value = state.brand.usp;
+    if (state.brand.tone) document.getElementById('fTone').value = state.brand.tone;
+    if (state.brand.target) document.getElementById('fTarget').value = state.brand.target;
+    if (state.brand.instagram) document.getElementById('fInstagram').value = state.brand.instagram;
+    renderTags();
+    renderPalette();
+
+    if (state.pillars.length) {
+      document.querySelector('.nav-item[data-section="brand"]').classList.add('completed');
+      goSection('pillars');
+      renderPillars();
+      if (state.calendar.length) {
+        renderCalendar();
+        document.getElementById('calendarView').classList.remove('hidden');
+      }
+    } else {
+      goSection('brand');
+    }
+    toast('Progetto caricato!', 'success');
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+}
+
+async function downloadAll() {
+  if (!state.slug) { toast('Nessun progetto attivo', 'error'); return; }
+  await exportZip();
+}
+
+// =================================================================
+// UTILS
+// =================================================================
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(d) {
+  const months = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  return d.getDate() + ' ' + months[d.getMonth()];
+}
+
+function getWeekNumber(d) {
+  const start = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - start) / 86400000) + start.getDay() + 1) / 7);
+}
+
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function toggleBlock(header) {
+  header.classList.toggle('open');
+  // Init design block when opened
+  if (header.querySelector('.block-title')?.textContent.includes('Design')) {
+    initDesignBlock();
+  }
+}
+
+// =================================================================
+// INIT
+// =================================================================
+renderPalette();
+updateCalSummary();
+</script>
+</body>
+</html>
