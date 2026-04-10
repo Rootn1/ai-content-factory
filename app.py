@@ -83,21 +83,17 @@ async def claude_chat(messages: list, system: str = "", model: str = "claude-son
 # ---------------------------------------------------------------------------
 # Gemini image helper
 # ---------------------------------------------------------------------------
-async def generate_gemini_image(prompt: str, reference_b64: str = None) -> Optional[str]:
-    """Call Gemini to generate an image, optionally using a reference PNG. Return base64 PNG or None."""
+async def generate_gemini_image(prompt: str, images: list = None) -> Optional[str]:
+    """Call Gemini to generate an image with optional reference images. Return base64 PNG or None.
+    images: list of {"data": base64, "mime": "image/png"} dicts
+    """
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key={GEMINI_API_KEY}"
 
     parts = []
-    if reference_b64:
-        parts.append({
-            "inlineData": {
-                "mimeType": "image/png",
-                "data": reference_b64
-            }
-        })
-        parts.append({"text": prompt})
-    else:
-        parts.append({"text": prompt})
+    for img in (images or []):
+        if img.get("data"):
+            parts.append({"inlineData": {"mimeType": img.get("mime", "image/png"), "data": img["data"]}})
+    parts.append({"text": prompt})
 
     body = {
         "contents": [{"parts": parts}],
@@ -692,10 +688,17 @@ async def generate_images(request: Request):
     slides = data.get("slides", [])
     brand_data = data.get("brand_data", {})
     palette = data.get("palette", ["#FF4500", "#1a1a1a", "#ffffff"])
+    logo_b64 = data.get("logo_b64")          # brand logo
+    author_b64 = data.get("author_b64")      # author photo
+    author_name = data.get("author_name", "")
+    author_title = data.get("author_title", "")
+    custom_instructions = data.get("custom_instructions", "")
+    total_slides = data.get("total_slides", len(slides))
 
-    palette_desc = ", ".join(palette[:4])
+    palette_desc = ", ".join(palette[:5])
     mood = brand_data.get("tone", "professional")
     sector = brand_data.get("niche", "lifestyle")
+    brand_name = brand_data.get("notes", "").split(",")[0][:40] if brand_data.get("notes") else ""
 
     results = []
     for slide in slides:
@@ -703,39 +706,148 @@ async def generate_images(request: Request):
         ct = slide.get("content_type", "")
         heading = slide.get("heading", "")
         body_text = slide.get("body", "")
-        ref_b64 = slide.get("reference_png")  # HTML-rendered slide as PNG
+        slide_idx = slide.get("index", 1)
+        ref_b64 = slide.get("reference_png")
 
+        # Build reference images list
+        ref_images = []
         if ref_b64:
-            # Use the HTML preview as reference — ask Gemini to enhance it
-            prompt = (
-                f"This is a reference layout for a social media slide. "
-                f"Recreate this exact slide as a polished, professional Instagram post image. "
-                f"Keep the EXACT same text, layout, and structure. "
-                f"Enhance the visual quality: add depth, subtle gradients, and premium feel. "
-                f"Use these exact colors: {palette_desc}. "
-                f"Brand sector: {sector}. Mood: {mood}. "
-                f"The text must be EXACTLY: "
-                f"Heading: \"{heading[:80]}\" "
-                f"Body: \"{body_text[:150]}\" "
-                f"Output a single finished slide image, vertical 4:5 format, 1080x1350px quality."
-            )
-            img_b64 = await generate_gemini_image(prompt, reference_b64=ref_b64)
-        else:
-            # Fallback: generate without reference
-            if st == "hero":
-                prompt = f"Cinematic background for {sector} brand, {mood} mood, {palette_desc} color palette, no people, no text, no logos, vertical 4:5 format, photorealistic, premium quality"
-            elif ct in ["tutorial_how_to", "errori_comuni", "checklist", "step_by_step"]:
-                subject = heading[:50] if heading else sector
-                prompt = f"Hand-drawn doodle illustration of {subject}, black ink on white background, sketch style, square composition, no text, clean minimal"
+            ref_images.append({"data": ref_b64, "mime": "image/png"})
+        if logo_b64:
+            # Strip data URL prefix if present
+            logo_data = logo_b64.split(",")[1] if "," in logo_b64 else logo_b64
+            ref_images.append({"data": logo_data, "mime": "image/png"})
+        if author_b64:
+            author_data = author_b64.split(",")[1] if "," in author_b64 else author_b64
+            ref_images.append({"data": author_data, "mime": "image/png"})
+
+        # Custom instructions suffix
+        extra = f"\n\nAdditional creative direction: {custom_instructions}" if custom_instructions else ""
+
+        # --- Build rich prompt based on slide type and content category ---
+        if ref_b64:
+            # REFERENCE-BASED: enhance the HTML preview
+            author_section = ""
+            if author_b64 and author_name:
+                author_section = (
+                    f"Include the author's profile photo (provided as reference image) in a circular frame "
+                    f"at the bottom-left with the name \"{author_name}\" and title \"{author_title}\" next to it. "
+                )
+            logo_section = ""
+            if logo_b64:
+                logo_section = "Place the brand logo (provided as reference image) in the top-left corner, small and elegant. "
+
+            # Swipe arrow for carousel slides (not first, not last CTA)
+            arrow_section = ""
+            if total_slides > 1 and st != 'cta' and slide_idx > 1:
+                arrow_section = "Add a subtle swipe-right arrow indicator on the right edge to invite swiping. "
+            elif total_slides > 1 and slide_idx == 1:
+                arrow_section = "Add a subtle swipe-right arrow indicator on the right edge to invite swiping to the next slide. "
+
+            # Content-type specific visual enhancements
+            visual_style = ""
+            if ct in ["checklist", "step_by_step"]:
+                visual_style = "Use checkmark icons (✓) or numbered circles next to each point. Make it look like an actionable checklist. "
+            elif ct in ["tutorial_how_to", "errori_comuni"]:
+                visual_style = "Use icon-based visual cues (warning icons, lightbulbs, arrows) to make the educational content scannable. "
             elif ct in ["did_you_know", "statistiche_shock"]:
-                prompt = f"Abstract data visualization concept, {palette_desc} colors, minimal flat design, no text, square composition, professional"
+                visual_style = "Incorporate bold data visualization elements: large numbers, percentage circles, bar charts, or infographic icons. Make the data POP visually. "
             elif ct in ["quote_motivazionale", "lezioni_di_vita"]:
-                prompt = f"Abstract minimalist background, {palette_desc}, soft gradient, no text, no people, vertical 4:5, artistic"
+                visual_style = 'Add elegant quotation marks ("") as decorative elements. Use a premium editorial feel. '
+            elif ct in ["mappa_mentale", "framework"]:
+                visual_style = "Create a visual mind-map or flowchart structure with connecting lines and nodes. Make it look like an infographic. "
+
+            prompt = (
+                f"You are a world-class Instagram content designer. "
+                f"I'm providing a reference layout image for slide {slide_idx}/{total_slides} of an Instagram carousel. "
+                f"RECREATE this slide as a stunning, scroll-stopping, professionally designed Instagram image. "
+                f"\n\nDESIGN REQUIREMENTS:\n"
+                f"- Color palette: {palette_desc}\n"
+                f"- Brand sector: {sector}\n"
+                f"- Mood/tone: {mood}\n"
+                f"- Format: vertical 4:5 (1080x1350px)\n"
+                f"\nTEXT CONTENT (must be EXACTLY this, in Italian):\n"
+                f"- Heading: \"{heading[:100]}\"\n"
+                f"- Body: \"{body_text[:200]}\"\n"
+                f"\nVISUAL DESIGN DIRECTION:\n"
+                f"- Create a PREMIUM, ENGAGING social media graphic — NOT a plain text-on-background slide.\n"
+                f"- Add visual depth: subtle gradients, geometric shapes, decorative lines, accent elements.\n"
+                f"- Use bold typography hierarchy: heading large and impactful, body text clean and readable.\n"
+                f"- Add decorative graphic elements that support the content (icons, shapes, dividers, highlights).\n"
+                f"- The design should make people STOP scrolling and want to save/share.\n"
+                f"{visual_style}"
+                f"{logo_section}"
+                f"{author_section}"
+                f"{arrow_section}"
+                f"\nIMPORTANT: Output ONE finished, ready-to-post image. No mockups, no phone frames."
+                f"{extra}"
+            )
+        else:
+            # NO REFERENCE — generate from scratch with rich prompts
+            if st == "hero":
+                prompt = (
+                    f"Create a stunning Instagram carousel COVER slide for a {sector} brand. "
+                    f"Bold, scroll-stopping design with headline: \"{heading[:80]}\" "
+                    f"and subtitle: \"{body_text[:120]}\" "
+                    f"Color palette: {palette_desc}. Mood: {mood}. "
+                    f"Premium graphic design with decorative elements, shapes, gradients. "
+                    f"{'Include the brand logo from the reference image in top-left corner. ' if logo_b64 else ''}"
+                    f"{'Add a swipe arrow on the right edge. ' if total_slides > 1 else ''}"
+                    f"Vertical 4:5 format, 1080x1350px, ready to post."
+                    f"{extra}"
+                )
+            elif ct in ["checklist", "step_by_step"]:
+                prompt = (
+                    f"Create an Instagram CHECKLIST/INFOGRAPHIC slide. "
+                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
+                    f"Design as an actionable checklist with checkmark icons, numbered steps, and visual hierarchy. "
+                    f"Color palette: {palette_desc}. Sector: {sector}. "
+                    f"Clean, professional infographic style that people want to SAVE and SHARE. "
+                    f"Vertical 4:5 format, 1080x1350px."
+                    f"{extra}"
+                )
+            elif ct in ["did_you_know", "statistiche_shock"]:
+                prompt = (
+                    f"Create an Instagram DATA/INFOGRAPHIC slide with bold statistics. "
+                    f"Title: \"{heading[:80]}\". Data: \"{body_text[:200]}\" "
+                    f"Include large numbers, percentage circles, bar charts, or data visualization icons. "
+                    f"Make the numbers POP with oversized bold typography. "
+                    f"Color palette: {palette_desc}. Sector: {sector}. "
+                    f"Vertical 4:5 format, 1080x1350px."
+                    f"{extra}"
+                )
+            elif ct in ["mappa_mentale", "framework"]:
+                prompt = (
+                    f"Create an Instagram MIND MAP / FRAMEWORK slide. "
+                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
+                    f"Design as a visual mind-map with connected nodes, flowchart arrows, and structured layout. "
+                    f"Color palette: {palette_desc}. Sector: {sector}. "
+                    f"Infographic style, clean and educational. Vertical 4:5 format, 1080x1350px."
+                    f"{extra}"
+                )
+            elif st == "cta":
+                prompt = (
+                    f"Create a CALL-TO-ACTION Instagram slide. "
+                    f"Title: \"{heading[:80]}\". Message: \"{body_text[:150]}\" "
+                    f"Include a prominent CTA button, follow prompt, and engagement elements. "
+                    f"{'Include the author photo from reference as a circular profile picture with name and title. ' if author_b64 else ''}"
+                    f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
+                    f"Vertical 4:5 format, 1080x1350px."
+                    f"{extra}"
+                )
             else:
-                prompt = f"Professional lifestyle image for {sector}, {mood} mood, {palette_desc} palette, no text, vertical 4:5"
+                prompt = (
+                    f"Create a professional Instagram carousel BODY slide. "
+                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
+                    f"Design with visual hierarchy: bold heading, clear body text, decorative elements. "
+                    f"Add subtle graphics, icons, accent shapes that support the content. "
+                    f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
+                    f"{'Add swipe arrow indicator on right edge. ' if total_slides > 1 and st != 'cta' else ''}"
+                    f"Vertical 4:5 format, 1080x1350px."
+                    f"{extra}"
+                )
 
-            img_b64 = await generate_gemini_image(prompt)
-
+        img_b64 = await generate_gemini_image(prompt, images=ref_images)
         results.append({"index": slide.get("index", 0), "img_b64": img_b64, "prompt": prompt})
 
     return {"slides_with_images": results}
@@ -875,12 +987,12 @@ async def export_zip(request: Request):
             if not post_dir.is_dir():
                 continue
             prefix = post_dir.name + "/"
-            # Add slide PNGs (Gemini-generated or html2canvas fallback)
+            # Add slide PNGs in a "slides/" subfolder
             images_dir = post_dir / "images"
             if images_dir.exists():
                 for f in sorted(images_dir.iterdir()):
                     if f.suffix.lower() == ".png":
-                        zf.write(f, prefix + f.name)
+                        zf.write(f, prefix + "slides/" + f.name)
             # Add caption
             for fname in ["caption.txt"]:
                 fp = post_dir / fname

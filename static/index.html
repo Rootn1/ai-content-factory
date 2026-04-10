@@ -631,7 +631,21 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
     </div>
     <div class="block-content">
       <div id="geminiSlideList" style="margin-bottom:12px"></div>
-      <div style="display:flex;gap:12px;align-items:center">
+
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Bio Autore (inclusa nelle slide)</label>
+        <div class="form-row">
+          <input class="form-input" id="fAuthorName" placeholder="Es: Dott. Davide Del Medico" style="flex:1">
+          <input class="form-input" id="fAuthorTitle" placeholder="Es: Commercialista specializzato in centri estetici" style="flex:2">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Istruzioni aggiuntive per Gemini</label>
+        <textarea class="form-textarea" id="fGeminiInstructions" rows="2" placeholder="Es: Usa stile minimal con icone flat, colori pastello, sfondo con texture carta..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="generateImages()">Genera le slide</button>
         <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()">Scarica ZIP</button>
         <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generando slide 1/6...</span></div>
@@ -1677,9 +1691,16 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const showLogo = document.getElementById('chkLogo')?.checked && state.logoB64;
   const logoHtml = showLogo ? `<img src="${state.logoB64}" style="position:absolute;top:16px;left:16px;height:28px;z-index:2;opacity:0.9">` : '';
 
-  // Author overlay
+  // Author bio overlay (photo + name + title)
   const showAuthor = document.getElementById('chkAuthor')?.checked && state.authorB64;
-  const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;z-index:2;display:flex;align-items:center;gap:8px"><img src="${state.authorB64}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid ${accent}"><span style="font-family:'${fb}',sans-serif;font-size:11px;color:${dim}">${escHtml(state.brand.instagram||'')}</span></div>` : '';
+  const aName = document.getElementById('fAuthorName')?.value || state.brand.instagram || '';
+  const aTitle = document.getElementById('fAuthorTitle')?.value || '';
+  const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;right:16px;z-index:2;display:flex;align-items:center;gap:10px;background:${bg}cc;padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px)"><img src="${state.authorB64}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid ${accent};flex-shrink:0"><div><div style="font-family:'${fb}',sans-serif;font-size:11px;font-weight:600;color:${textColor}">${escHtml(aName)}</div>${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:9px;color:${dim};margin-top:1px">${escHtml(aTitle)}</div>` : ''}</div></div>` : '';
+
+  // Swipe arrow for carousel (not on last slide)
+  const totalSlides = state.currentCopy?.slides?.length || 1;
+  const showArrow = totalSlides > 1 && slide.type !== 'cta' && idx < totalSlides - 1;
+  const arrowHtml = showArrow ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:2;font-size:20px;color:${accent};opacity:0.6">&#10095;</div>` : '';
 
   // Vertical alignment for outer container
   const vaMap = {top:'flex-start', center:'center', bottom:'flex-end'};
@@ -1733,7 +1754,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
       </div>`;
   }
 
-  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:${alignItems};justify-content:center;border-radius:4px">${imgTag}${logoHtml}${authorHtml}${content}</div>`;
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;align-items:${alignItems};justify-content:center;border-radius:4px">${imgTag}${logoHtml}${authorHtml}${arrowHtml}${content}</div>`;
 }
 
 // Capture a slide HTML element to PNG base64 via html2canvas
@@ -1811,8 +1832,47 @@ function renderGeminiList() {
     <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
       <span class="status-dot ${s.img_b64?'status-done':'status-todo'}"></span>
       <span style="color:var(--text-dim)">Slide ${s.index||i+1}</span>
-      <span style="color:var(--text)">${s.type}</span>
+      <span style="color:var(--text);flex:1">${s.type}</span>
+      ${s.img_b64 ? `<span style="color:var(--text-dim);cursor:pointer;font-size:11px" onclick="regenSlide(${i})" title="Rigenera questa slide">&#x21bb;</span>` : ''}
     </div>`).join('');
+}
+
+async function regenSlide(idx) {
+  const slides = state.currentCopy.slides;
+  slides[idx].img_b64 = null; // clear to force regeneration
+  renderGeminiList();
+  // Re-run generation just for this slide
+  const post = state.selectedPosts[state.currentPostIdx];
+  const authorName = document.getElementById('fAuthorName')?.value || '';
+  const authorTitle = document.getElementById('fAuthorTitle')?.value || '';
+  const customInstructions = document.getElementById('fGeminiInstructions')?.value || '';
+
+  let refPng = null;
+  try { refPng = await captureSlideAsPng(slides[idx], idx); } catch(e) {}
+
+  try {
+    const result = await api('/api/generate-images', {
+      slides: [{ ...slides[idx], content_type: post.content_type, reference_png: refPng }],
+      brand_data: state.brand,
+      palette: state.colors,
+      logo_b64: state.logoB64 || null,
+      author_b64: state.authorB64 || null,
+      author_name: authorName,
+      author_title: authorTitle,
+      custom_instructions: customInstructions,
+      total_slides: slides.length,
+    });
+    if (result.slides_with_images?.[0]?.img_b64) {
+      slides[idx].img_b64 = result.slides_with_images[0].img_b64;
+      toast(`Slide ${idx+1} rigenerata!`, 'success');
+    }
+  } catch(e) { toast('Errore: ' + e.message, 'error'); }
+  renderPreview();
+  renderGeminiList();
+
+  // Show ZIP only if all done
+  const allDone = slides.every(s => !!s.img_b64);
+  if (allDone) document.getElementById('btnExportZip').classList.remove('hidden');
 }
 
 async function generateImages() {
@@ -1822,11 +1882,19 @@ async function generateImages() {
   const fill = document.getElementById('imgProgressFill');
   loading.classList.remove('hidden');
   bar.classList.remove('hidden');
+  document.getElementById('btnExportZip').classList.add('hidden');
 
   const slides = state.currentCopy.slides;
   const post = state.selectedPosts[state.currentPostIdx];
+  const authorName = document.getElementById('fAuthorName')?.value || '';
+  const authorTitle = document.getElementById('fAuthorTitle')?.value || '';
+  const customInstructions = document.getElementById('fGeminiInstructions')?.value || '';
+
+  const MAX_RETRIES = 2;
 
   for (let i = 0; i < slides.length; i++) {
+    if (slides[i].img_b64) { renderGeminiList(); continue; } // skip already generated
+
     // Step 1: Capture HTML preview as PNG reference
     document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — cattura preview...`;
     fill.style.width = ((i * 2) / (slides.length * 2) * 100) + '%';
@@ -1838,25 +1906,38 @@ async function generateImages() {
       console.error('Capture error:', e);
     }
 
-    // Step 2: Send to Gemini with reference
+    // Step 2: Send to Gemini with reference + logo + author + instructions
     document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — generazione Gemini...`;
     fill.style.width = ((i * 2 + 1) / (slides.length * 2) * 100) + '%';
 
-    try {
-      const result = await api('/api/generate-images', {
-        slides: [{
-          ...slides[i],
-          content_type: post.content_type,
-          reference_png: refPng,
-        }],
-        brand_data: state.brand,
-        palette: state.colors,
-      });
-      if (result.slides_with_images?.[0]?.img_b64) {
-        slides[i].img_b64 = result.slides_with_images[0].img_b64;
+    let success = false;
+    for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
+      if (attempt > 0) {
+        document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — retry ${attempt+1}...`;
       }
-    } catch(e) {
-      console.error('Image gen error:', e);
+      try {
+        const result = await api('/api/generate-images', {
+          slides: [{
+            ...slides[i],
+            content_type: post.content_type,
+            reference_png: refPng,
+          }],
+          brand_data: state.brand,
+          palette: state.colors,
+          logo_b64: state.logoB64 || null,
+          author_b64: state.authorB64 || null,
+          author_name: authorName,
+          author_title: authorTitle,
+          custom_instructions: customInstructions,
+          total_slides: slides.length,
+        });
+        if (result.slides_with_images?.[0]?.img_b64) {
+          slides[i].img_b64 = result.slides_with_images[0].img_b64;
+          success = true;
+        }
+      } catch(e) {
+        console.error(`Image gen error (attempt ${attempt+1}):`, e);
+      }
     }
 
     fill.style.width = (((i + 1) * 2) / (slides.length * 2) * 100) + '%';
@@ -1864,14 +1945,13 @@ async function generateImages() {
     renderGeminiList();
   }
 
-  // Save slides to disk — capture preview PNGs as fallback
+  // Save slides to disk — capture preview PNGs as fallback for any failed slides
   if (state.slug) {
     try {
       const slidesPayload = [];
       for (let i = 0; i < slides.length; i++) {
         let previewPng = null;
         if (!slides[i].img_b64) {
-          // No Gemini image — capture html2canvas as fallback PNG
           try { previewPng = await captureSlideAsPng(slides[i], i); } catch(e) {}
         }
         slidesPayload.push({
@@ -1895,8 +1975,16 @@ async function generateImages() {
   }
 
   loading.classList.add('hidden');
-  document.getElementById('btnExportZip').classList.remove('hidden');
-  toast('Slide generate!', 'success');
+
+  // Only show ZIP button if ALL slides have images
+  const allGenerated = slides.every(s => !!s.img_b64);
+  if (allGenerated) {
+    document.getElementById('btnExportZip').classList.remove('hidden');
+    toast('Tutte le slide generate!', 'success');
+  } else {
+    const failed = slides.filter(s => !s.img_b64).length;
+    toast(`${failed} slide non generate. Riprova con "Genera le slide".`, 'error');
+  }
 }
 
 function getSlideFullHTML(slide, idx, includeImages) {
