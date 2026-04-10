@@ -646,7 +646,7 @@ let state = {
   slug: '',
   brand: {},
   keywords: [],
-  colors: ['#FF4500','#1a1a1a','#ffffff','#888888'],
+  colors: [],
   pillars: [],
   calendar: [],
   selectedPosts: [],
@@ -681,7 +681,7 @@ function goSection(name) {
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:['#FF4500','#1a1a1a','#ffffff','#888888'],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',titleSize:100,subSize:100},refImages:[],paletteImage:null};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -726,6 +726,10 @@ function removeTag(i) {
 function renderPalette() {
   const row = document.getElementById('paletteRow');
   row.innerHTML = '';
+  if (!state.colors.length) {
+    row.innerHTML = '<span style="font-size:12px;color:var(--text-dim)">Nessun colore — verrà estratto automaticamente dalla URL o aggiungilo manualmente</span>';
+    return;
+  }
   state.colors.forEach((c, i) => {
     const div = document.createElement('div');
     div.style.textAlign = 'center';
@@ -852,6 +856,20 @@ function fillBrandForm(data) {
   if (data.keywords?.length) {
     data.keywords.forEach(kw => { if (!state.keywords.includes(kw)) state.keywords.push(kw); });
     renderTags();
+  }
+  if (data.colors?.length) {
+    state.colors = data.colors;
+    renderPalette();
+  }
+  if (data.heading_font) {
+    document.getElementById('fHeadingFont').value = data.heading_font;
+    document.getElementById('previewHeading').style.fontFamily = data.heading_font + ', sans-serif';
+    state.design.fontHeading = data.heading_font;
+  }
+  if (data.body_font) {
+    document.getElementById('fBodyFont').value = data.body_font;
+    document.getElementById('previewBody').style.fontFamily = data.body_font + ', sans-serif';
+    state.design.fontBody = data.body_font;
   }
 }
 

@@ -192,8 +192,13 @@ Restituisci JSON:
   "target": "target audience identificato",
   "keywords": ["keyword1", "keyword2", ...],
   "instagram": "@handle se trovato oppure stringa vuota",
-  "notes": "altre info utili trovate (nome founder, brand name, ecc.)"
-}}"""
+  "notes": "altre info utili trovate (nome founder, brand name, ecc.)",
+  "colors": ["#hex1", "#hex2", "#hex3", "#hex4", "#hex5"],
+  "heading_font": "font heading usato o suggerito dal sito",
+  "body_font": "font body usato o suggerito dal sito"
+}}
+
+IMPORTANTE per i colori: estrai la color palette reale del sito web analizzando i colori menzionati nel CSS/HTML o deducendoli dal branding visivo descritto. Restituisci 4-6 colori hex. Se non riesci a dedurli, restituisci un array vuoto."""
 
     result = await claude_chat([{"role": "user", "content": prompt}], system=system)
     try:
