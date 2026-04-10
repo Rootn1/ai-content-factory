@@ -732,6 +732,53 @@ def _brand_brief_to_md(data: dict) -> str:
     return "\n".join(lines)
 
 
+@app.post("/api/save-slides")
+async def save_slides(request: Request):
+    """Save slide HTML and images to disk for a post."""
+    data = await request.json()
+    slug = data.get("slug", "")
+    entry = data.get("entry", {})
+    slides = data.get("slides", [])
+    caption = data.get("caption", "")
+    reel_script = data.get("reel_script", "")
+
+    if not slug or not entry.get("topic"):
+        raise HTTPException(400, "slug and entry required")
+
+    topic_slug = re.sub(r"[^a-z0-9]+", "-", entry.get("topic", "post").lower())[:30].strip("-")
+    post_dir = project_dir(slug) / "posts" / f"{entry.get('date', 'nodate')}-{topic_slug}"
+    slides_dir = post_dir / "slides"
+    images_dir = post_dir / "images"
+    slides_dir.mkdir(parents=True, exist_ok=True)
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    for slide in slides:
+        idx = slide.get("index", 0)
+        html = slide.get("html", "")
+        img_b64 = slide.get("img_b64")
+
+        # Save HTML
+        if html:
+            (slides_dir / f"slide_{idx:02d}.html").write_text(html, encoding="utf-8")
+
+        # Save image as PNG
+        if img_b64:
+            img_data = base64.b64decode(img_b64)
+            (images_dir / f"slide_{idx:02d}.png").write_bytes(img_data)
+
+    # Save caption & script
+    if caption:
+        (post_dir / "caption.txt").write_text(caption, encoding="utf-8")
+    if reel_script:
+        (post_dir / "script_reel.txt").write_text(reel_script, encoding="utf-8")
+
+    # Save post.json
+    post_data = {**entry, "slides": [{"index": s.get("index"), "type": s.get("type"), "heading": s.get("heading"), "body": s.get("body")} for s in slides], "status": "completed"}
+    save_json(post_dir / "post.json", post_data)
+
+    return {"post_dir": str(post_dir), "slides_saved": len(slides)}
+
+
 @app.post("/api/export-zip")
 async def export_zip(request: Request):
     data = await request.json()

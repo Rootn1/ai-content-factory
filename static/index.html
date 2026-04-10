@@ -528,16 +528,11 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <label class="form-label">Caption Instagram</label>
         <textarea class="form-textarea" id="captionArea" rows="4"></textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">Script Reel</label>
-        <textarea class="form-textarea" id="reelArea" rows="4"></textarea>
-      </div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <div class="form-group" style="flex:1">
           <textarea class="form-textarea" id="copyNotes" rows="2" placeholder="Note per rigenerare il copy..."></textarea>
         </div>
         <button class="btn btn-secondary" onclick="regenerateCopy()">Rigenera Copy</button>
-        <button class="btn btn-secondary" onclick="generateReelScript()">Converti in Script Reel</button>
       </div>
     </div>
   </div>
@@ -601,11 +596,11 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
     </div>
   </div>
 
-  <!-- Block 4: Build con Gemini -->
+  <!-- Block 4: Genera Slide -->
   <div class="block">
     <div class="block-header" onclick="toggleBlock(this)">
       <span class="block-num">04</span>
-      <span class="block-title">Build con Gemini</span>
+      <span class="block-title">Genera Slide</span>
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content">
@@ -1284,7 +1279,6 @@ function renderCopy(data) {
     <div><span class="form-label">Font</span><div style="font-size:13px">${state.design.fontHeading} + ${state.design.fontBody}</div></div>`;
 
   document.getElementById('captionArea').value = data.caption || '';
-  document.getElementById('reelArea').value = data.reel_script || '';
 }
 
 function updateSlide(idx, field, val) {
@@ -1301,20 +1295,6 @@ async function regenerateCopy() {
   }
   state.currentCopy = null;
   await generateCopy();
-}
-
-async function generateReelScript() {
-  if (!state.currentCopy) return;
-  toast('Generazione script reel...');
-  try {
-    const result = await api('/api/generate-reel-script', {
-      slides: state.currentCopy.slides,
-      caption: state.currentCopy.caption,
-      brand_data: state.brand,
-    });
-    document.getElementById('reelArea').value = result.script || '';
-    toast('Script reel generato!', 'success');
-  } catch(e) { toast('Errore: ' + e.message, 'error'); }
 }
 
 // =================================================================
@@ -1582,9 +1562,38 @@ async function generateImages() {
     renderGeminiList();
   }
 
+  // Save slides to disk
+  if (state.slug) {
+    try {
+      const slidesPayload = slides.map((s, i) => ({
+        index: s.index || i + 1,
+        type: s.type,
+        heading: s.heading,
+        body: s.body,
+        html: getSlideFullHTML(s, i, true),
+        img_b64: s.img_b64 || null,
+      }));
+      await api('/api/save-slides', {
+        slug: state.slug,
+        entry: post,
+        slides: slidesPayload,
+        caption: state.currentCopy.caption || '',
+        reel_script: state.currentCopy.reel_script || '',
+      });
+    } catch(e) {
+      console.error('Save slides error:', e);
+    }
+  }
+
   loading.classList.add('hidden');
   document.getElementById('btnExportZip').classList.remove('hidden');
-  toast('Immagini generate!', 'success');
+  toast('Slide generate!', 'success');
+}
+
+function getSlideFullHTML(slide, idx, includeImages) {
+  // Returns a full standalone HTML document for export
+  const inner = getSlideHTML(slide, idx, includeImages);
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(state.design.fontHeading)}:wght@400;700&family=${encodeURIComponent(state.design.fontBody)}:wght@400;500&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0">${inner}</body></html>`;
 }
 
 async function exportZip() {
