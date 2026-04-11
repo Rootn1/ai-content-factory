@@ -115,6 +115,13 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 .toggle-btn{padding:6px 14px;border:1px solid var(--border-light);background:transparent;color:var(--text-dim);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .2s}
 .toggle-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .toggle-btn:hover:not(.active){border-color:var(--text-dim);color:var(--text)}
+.align-btn{padding:5px 7px;background:transparent;border:none;color:var(--text-dim);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.align-btn:hover{background:var(--border);color:var(--text)}
+.align-btn.active{background:var(--accent);color:#fff}
+.ve-chip{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s}
+.ve-chip:has(input:checked){background:var(--accent)15;border-color:var(--accent)50}
+.ve-chip input{display:none}
+.ve-chip span{pointer-events:none}
 
 /* Day toggles */
 .day-toggles{display:flex;gap:4px}
@@ -566,10 +573,21 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         </div>
       </div>
 
-      <!-- D) Font -->
+      <!-- D) Tipografia -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
-        <label class="form-label">Font</label>
+        <label class="form-label">Tipografia</label>
+        <div id="fontExtracted" class="hidden" style="background:var(--accent)12;border:1px solid var(--accent)30;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">&#127912;</span>
+          <div style="flex:1;font-size:12px;color:var(--text-dim)">Font estratti dal sito: <strong id="fontExtractedName" style="color:var(--text)"></strong></div>
+          <button class="btn btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyExtractedFonts()">Usa questi</button>
+        </div>
         <div class="font-presets" id="fontPresets"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input class="form-input" id="fCustomHeadFont" placeholder="Font heading personalizzato" style="flex:1;font-size:12px;padding:5px 8px">
+          <input class="form-input" id="fCustomBodyFont" placeholder="Font body personalizzato" style="flex:1;font-size:12px;padding:5px 8px">
+          <button class="btn btn-sm btn-secondary" onclick="applyCustomFonts()" style="white-space:nowrap">Applica</button>
+        </div>
+        <p class="form-hint">Font attivi: <span id="activeFontDisplay" style="color:var(--accent)"></span></p>
       </div>
 
       <!-- E) Layout -->
@@ -578,106 +596,105 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <div class="layout-presets" id="layoutPresets"></div>
       </div>
 
-      <!-- F) Alignment — 4 controls -->
+      <!-- F) Formattazione Testo (Word-style) -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
-        <label class="form-label">Allineamento Testo</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Headline — Slide 1</span>
-            <div style="display:flex;gap:4px;margin-top:4px" id="alignHeadHeroBtns">
-              <button class="toggle-btn" onclick="setAlignField('headAlignHero','left',this)">&#9664;</button>
-              <button class="toggle-btn active" onclick="setAlignField('headAlignHero','center',this)">&#9632;</button>
-              <button class="toggle-btn" onclick="setAlignField('headAlignHero','right',this)">&#9654;</button>
+        <label class="form-label">Formattazione Testo</label>
+
+        <!-- Alignment toolbar — Slide 1 (Hero) -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Slide 1 (Hero)</div>
+          <div style="display:flex;gap:16px;align-items:center">
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--text-dim);width:24px">H</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignHeadHeroBtns">
+                <button class="align-btn" onclick="setAlignField('headAlignHero','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('headAlignHero','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('headAlignHero','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--text-dim);width:24px">B</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignBodyHeroBtns">
+                <button class="align-btn" onclick="setAlignField('bodyAlignHero','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('bodyAlignHero','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('bodyAlignHero','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+            </div>
+            <div style="width:1px;height:24px;background:var(--border)"></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--text-dim)">&#8597;</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="vAlignHeroBtns">
+                <button class="align-btn" onclick="setVAlign('top',this)" title="Alto"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="2" stroke="currentColor" stroke-width="2"/><line x1="7" y1="4" x2="7" y2="12" stroke="currentColor" stroke-width="1.5"/><line x1="4.5" y1="6.5" x2="7" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="9.5" y1="6.5" x2="7" y2="4" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setVAlign('center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/><line x1="7" y1="2" x2="7" y2="5" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="9" x2="7" y2="12" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setVAlign('bottom',this)" title="Basso"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="12" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="7" y1="2" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="4.5" y1="7.5" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="9.5" y1="7.5" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
             </div>
           </div>
-          <div>
-            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Headline — Slide successive</span>
-            <div style="display:flex;gap:4px;margin-top:4px" id="alignHeadBodyBtns">
-              <button class="toggle-btn" onclick="setAlignField('headAlignBody','left',this)">&#9664;</button>
-              <button class="toggle-btn active" onclick="setAlignField('headAlignBody','center',this)">&#9632;</button>
-              <button class="toggle-btn" onclick="setAlignField('headAlignBody','right',this)">&#9654;</button>
+        </div>
+
+        <!-- Alignment toolbar — Body slides -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Slide successive (Body)</div>
+          <div style="display:flex;gap:16px;align-items:center">
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--text-dim);width:24px">H</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignHeadBodyBtns">
+                <button class="align-btn" onclick="setAlignField('headAlignBody','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('headAlignBody','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('headAlignBody','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--text-dim);width:24px">B</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignBodyBodyBtns">
+                <button class="align-btn" onclick="setAlignField('bodyAlignBody','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('bodyAlignBody','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('bodyAlignBody','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
             </div>
           </div>
-          <div>
-            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Body — Slide 1</span>
-            <div style="display:flex;gap:4px;margin-top:4px" id="alignBodyHeroBtns">
-              <button class="toggle-btn" onclick="setAlignField('bodyAlignHero','left',this)">&#9664;</button>
-              <button class="toggle-btn active" onclick="setAlignField('bodyAlignHero','center',this)">&#9632;</button>
-              <button class="toggle-btn" onclick="setAlignField('bodyAlignHero','right',this)">&#9654;</button>
+        </div>
+        <p class="form-hint" style="margin-top:6px">H = Headline, B = Body. Personalizza per-slide nel lightbox (click slide).</p>
+      </div>
+
+      <!-- G) Dimensioni testo -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Dimensioni Testo</label>
+        <div class="form-row">
+          <div class="form-group">
+            <label style="font-size:11px;color:var(--text-dim)">Titolo</label>
+            <div class="size-slider">
+              <button onclick="adjustSize('title',-5)">-</button>
+              <span id="titleSizeVal">100%</span>
+              <button onclick="adjustSize('title',5)">+</button>
             </div>
           </div>
-          <div>
-            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Body — Slide successive</span>
-            <div style="display:flex;gap:4px;margin-top:4px" id="alignBodyBodyBtns">
-              <button class="toggle-btn" onclick="setAlignField('bodyAlignBody','left',this)">&#9664;</button>
-              <button class="toggle-btn active" onclick="setAlignField('bodyAlignBody','center',this)">&#9632;</button>
-              <button class="toggle-btn" onclick="setAlignField('bodyAlignBody','right',this)">&#9654;</button>
+          <div class="form-group">
+            <label style="font-size:11px;color:var(--text-dim)">Body</label>
+            <div class="size-slider">
+              <button onclick="adjustSize('sub',-5)">-</button>
+              <span id="subSizeVal">100%</span>
+              <button onclick="adjustSize('sub',5)">+</button>
             </div>
           </div>
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label style="font-size:11px;color:var(--text-dim)">Offset Body <span id="bodyOffsetVal" style="color:var(--accent);font-weight:600">0px</span></label>
+          <input type="range" id="bodyOffsetSlider" min="-120" max="120" value="0" step="5" style="width:100%;accent-color:var(--accent)" oninput="setBodyOffset(this.value)">
         </div>
       </div>
 
-      <!-- G) Vertical position + body offset + sizes -->
-      <div class="form-group">
-        <label class="form-label">Posizione verticale (contenitore)</label>
-        <div style="display:flex;gap:6px" id="vAlignBtns">
-          <button class="toggle-btn" onclick="setVAlign('top',this)">&#9650; Alto</button>
-          <button class="toggle-btn active" onclick="setVAlign('center',this)">&#9632; Centro</button>
-          <button class="toggle-btn" onclick="setVAlign('bottom',this)">&#9660; Basso</button>
+      <!-- H) Elementi Visivi per Gemini -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Elementi Visivi (Gemini)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <label class="ve-chip"><input type="checkbox" id="chkDoodles" checked><span>&#9997; Doodles</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkIcons" checked><span>&#128161; Icone</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkStickers"><span>&#127881; Stickers</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkSwipeVisual" checked><span>&#128073; Swipe</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkHeroImage" checked><span>&#127775; Hero img</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkShapes"><span>&#9670; Forme</span></label>
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Offset Body testo <span id="bodyOffsetVal" style="color:var(--accent);font-weight:600">0px</span></label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:11px;color:var(--text-dim)">&#9650; Alto</span>
-          <input type="range" id="bodyOffsetSlider" min="-120" max="120" value="0" step="5" style="flex:1;accent-color:var(--accent)" oninput="setBodyOffset(this.value)">
-          <span style="font-size:11px;color:var(--text-dim)">Basso &#9660;</span>
-        </div>
-        <p class="form-hint">Sposta solo il body — la headline rimane fissa. Oppure trascina il body nella preview.</p>
-      </div>
-      <div class="form-row" style="margin-top:12px">
-        <div class="form-group">
-          <label class="form-label">Title Size</label>
-          <div class="size-slider">
-            <button onclick="adjustSize('title',-5)">-</button>
-            <span id="titleSizeVal">100%</span>
-            <button onclick="adjustSize('title',5)">+</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Sub Size</label>
-          <div class="size-slider">
-            <button onclick="adjustSize('sub',-5)">-</button>
-            <span id="subSizeVal">100%</span>
-            <button onclick="adjustSize('sub',5)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- H) Visual elements checkboxes -->
-      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
-        <label class="form-label">Elementi Visivi (istruzioni per Gemini)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkDoodles" checked> Frecce & doodles
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkIcons" checked> Icone tematiche
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkStickers"> Sticker / visual ironici
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkSwipeVisual" checked> Indicatori di swipe
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkHeroImage" checked> Immagine hero (slide 1)
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chkShapes"> Forme geometriche / pattern
-          </label>
-        </div>
-        <p class="form-hint">Questi elementi vengono inclusi nel prompt di generazione immagini Gemini</p>
       </div>
     </div>
   </div>
@@ -1159,12 +1176,27 @@ function fillBrandForm(data) {
   }
   // Update bio preview with author photo if available
   updateAuthorBioPreview();
-  if (data.heading_font) {
-    state.design.fontHeading = data.heading_font;
+  if (data.heading_font || data.body_font) {
+    state._extractedFonts = { heading: data.heading_font, body: data.body_font };
+    // Show extracted font banner
+    const banner = document.getElementById('fontExtracted');
+    const nameEl = document.getElementById('fontExtractedName');
+    if (banner && nameEl) {
+      nameEl.textContent = `${data.heading_font || '?'} + ${data.body_font || '?'}`;
+      banner.classList.remove('hidden');
+      banner.style.display = 'flex';
+    }
+    // Auto-apply extracted fonts
+    if (data.heading_font) state.design.fontHeading = data.heading_font;
+    if (data.body_font) state.design.fontBody = data.body_font;
+    // Load from Google Fonts
+    const families = [data.heading_font, data.body_font].filter(Boolean).map(f => encodeURIComponent(f) + ':wght@400;600;700;900').join('&family=');
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+    document.head.appendChild(link);
   }
-  if (data.body_font) {
-    state.design.fontBody = data.body_font;
-  }
+  updateActiveFontDisplay();
 }
 
 function handleBriefDrop(e) {
@@ -1754,6 +1786,8 @@ function initDesignBlock() {
   lp.innerHTML = LAYOUTS.map(l => `
     <div class="layout-preset${l.toLowerCase()===state.design.layout?' active':''}" onclick="selectLayout('${l.toLowerCase()}',this)">${l}</div>`).join('');
 
+  updateActiveFontDisplay();
+
   // Default palette tab — show brand palette if available
   if (state.colors.length) {
     showPaletteTab('brand', document.getElementById('palTabBrand'));
@@ -1767,7 +1801,44 @@ function selectFont(idx, el) {
   state.design.fontBody = FONT_PRESETS[idx].body;
   document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
+  updateActiveFontDisplay();
   renderPreview();
+}
+function applyCustomFonts() {
+  const hf = document.getElementById('fCustomHeadFont').value.trim();
+  const bf = document.getElementById('fCustomBodyFont').value.trim();
+  if (hf) state.design.fontHeading = hf;
+  if (bf) state.design.fontBody = bf;
+  // Load custom fonts from Google Fonts
+  if (hf || bf) {
+    const families = [hf, bf].filter(Boolean).map(f => encodeURIComponent(f) + ':wght@400;600;700;900').join('&family=');
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+    document.head.appendChild(link);
+  }
+  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  updateActiveFontDisplay();
+  renderPreview();
+  toast('Font personalizzati applicati', 'success');
+}
+function applyExtractedFonts() {
+  state.design.fontHeading = state._extractedFonts?.heading || state.design.fontHeading;
+  state.design.fontBody = state._extractedFonts?.body || state.design.fontBody;
+  // Load from Google Fonts
+  const families = [state.design.fontHeading, state.design.fontBody].map(f => encodeURIComponent(f) + ':wght@400;600;700;900').join('&family=');
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+  document.head.appendChild(link);
+  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  updateActiveFontDisplay();
+  renderPreview();
+  toast('Font dal sito applicati', 'success');
+}
+function updateActiveFontDisplay() {
+  const el = document.getElementById('activeFontDisplay');
+  if (el) el.textContent = `${state.design.fontHeading} + ${state.design.fontBody}`;
 }
 function selectLayout(layout, el) {
   state.design.layout = layout;
@@ -1797,13 +1868,13 @@ function getVisualElements() {
 }
 function setAlignField(field, val, btn) {
   state.design[field] = val;
-  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.parentElement.querySelectorAll('.align-btn,.toggle-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderPreview();
 }
 function setVAlign(va, btn) {
   state.design.vAlign = va;
-  document.getElementById('vAlignBtns').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.parentElement.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderPreview();
 }
@@ -1858,8 +1929,8 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const isHero = slide.type === 'hero' || idx === 0;
   const headAlign = isHero ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center');
   const bodyAlign = isHero ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center');
-  const va = state.design.vAlign || 'center';
-  const bodyOff = state.design.bodyOffsetY || 0;
+  const va = slide._vAlign || state.design.vAlign || 'center';
+  const bodyOff = slide._bodyOffsetY ?? state.design.bodyOffsetY ?? 0;
   const bodyTransform = bodyOff !== 0 ? `transform:translateY(${bodyOff}px)` : '';
   const ts = state.design.titleSize / 100;
   const ss = state.design.subSize / 100;
@@ -1873,13 +1944,16 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
   // Parse heading: *text* → accent-colored emphasis
   const headingHtml = escHtml(slide.heading || '').replace(/\*([^*]+)\*/g, `<span style="color:${accent}">$1</span>`);
-  const bodyHtml = escHtml(slide.body || '').replace(/\n/g, '<br>');
+  const bodyHtml = escHtml(slide.body || '').replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${textColor};font-weight:600">$1</strong>`).replace(/\*([^*]+)\*/g, `<span style="color:${accent}">$1</span>`).replace(/\n/g, '<br>');
 
   // Metadata
   const totalSlides = state.currentCopy?.slides?.length || 1;
   const post = state.selectedPosts?.[state.currentPostIdx] || {};
   const pillarTag = (post.pillar || post.content_type || '').toUpperCase().replace(/_/g, ' ');
-  const brandNotes = state.brand?.notes?.split(',')[0]?.trim() || '';
+  // Extract short brand name from notes (look for "Brand name:" or use first word)
+  const rawNotes = state.brand?.notes || '';
+  const brandMatch = rawNotes.match(/brand\s*name[:\s]+([^.|,]+)/i);
+  const brandNotes = brandMatch ? brandMatch[1].trim() : (state.brand?.instagram?.replace(/@/g,'') || '').substring(0, 20);
   const brandHandle = state.brand?.instagram ? '@' + state.brand.instagram.replace(/@/g,'') : '';
 
   // === ACCENT BAR (top) ===
@@ -2049,6 +2123,9 @@ function openLightbox(idx) {
   const curAccent = sColors.accent || '';
   const curDim = sColors.dim || '';
 
+  const slideVAlign = slide._vAlign || state.design.vAlign || 'center';
+  const slideBodyOff = slide._bodyOffsetY ?? state.design.bodyOffsetY ?? 0;
+
   content.innerHTML = `
     <div id="lbSlideWrap" style="margin-bottom:16px;position:relative;cursor:grab">${getSlideHTML(slide, idx, true)}</div>
     <p style="font-size:11px;color:var(--text-dim);margin:-8px 0 12px">Trascina il body verticalmente nella slide per riposizionarlo</p>
@@ -2061,7 +2138,23 @@ function openLightbox(idx) {
       <textarea class="form-textarea" rows="4" onchange="updateSlide(${idx},'body',this.value);refreshLightboxSlide(${idx})">${escHtml(slide.body||'')}</textarea>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
-      <label class="form-label">Override colori per questa slide <span style="font-size:11px;color:var(--text-dim)">(lascia vuoto per usare palette globale)</span></label>
+      <label class="form-label">Posizione contenuto (questa slide)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+          <button class="align-btn${slideVAlign==='top'?' active':''}" onclick="setSlideVAlign(${idx},'top',this)" title="Alto">&#9650;</button>
+          <button class="align-btn${slideVAlign==='center'?' active':''}" onclick="setSlideVAlign(${idx},'center',this)" title="Centro">&#9632;</button>
+          <button class="align-btn${slideVAlign==='bottom'?' active':''}" onclick="setSlideVAlign(${idx},'bottom',this)" title="Basso">&#9660;</button>
+        </div>
+        <span style="font-size:11px;color:var(--text-dim)">Verticale</span>
+        <div style="flex:1;display:flex;align-items:center;gap:6px;margin-left:12px">
+          <span style="font-size:10px;color:var(--text-dim)">Offset</span>
+          <input type="range" min="-120" max="120" value="${slideBodyOff}" step="5" style="flex:1;accent-color:var(--accent)" oninput="setSlideBodyOffset(${idx},this.value)">
+          <span style="font-size:11px;color:var(--accent);font-weight:600;width:32px" id="lbOffsetVal">${slideBodyOff}px</span>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+      <label class="form-label">Colori (questa slide)</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="display:flex;align-items:center;gap:6px">
           <input type="color" value="${curBg || cr.background || '#1a1a1a'}" style="width:28px;height:28px;border:none;background:none;cursor:pointer" onchange="setSlideColor(${idx},'background',this.value)">
@@ -2080,7 +2173,7 @@ function openLightbox(idx) {
           <span style="font-size:11px;color:var(--text-dim)">Sottotesto</span>
         </div>
       </div>
-      ${(curBg||curText||curAccent||curDim) ? `<button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="clearSlideColors(${idx})">Reset colori globali</button>` : ''}
+      ${(curBg||curText||curAccent||curDim) ? `<button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="clearSlideColors(${idx})">Reset globali</button>` : ''}
     </div>
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="btn btn-primary" onclick="closeLightbox()">Applica</button>
@@ -2113,7 +2206,25 @@ function clearSlideColors(idx) {
   const slide = state.currentCopy?.slides?.[idx];
   if (!slide) return;
   delete slide._colorOverrides;
-  openLightbox(idx); // re-open to refresh controls
+  openLightbox(idx);
+}
+function setSlideVAlign(idx, va, btn) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  slide._vAlign = va;
+  btn.parentElement.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshLightboxSlide(idx);
+  renderPreview();
+}
+function setSlideBodyOffset(idx, val) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  slide._bodyOffsetY = parseInt(val);
+  const valEl = document.getElementById('lbOffsetVal');
+  if (valEl) valEl.textContent = val + 'px';
+  refreshLightboxSlide(idx);
+  renderPreview();
 }
 
 function initBodyDrag(idx) {
