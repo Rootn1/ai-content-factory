@@ -577,10 +577,14 @@ async def generate_copy(request: Request):
     fmt = entry.get("format", "carousel")
     if fmt == "mini":
         num_slides = 2
+    elif fmt == "carousel10":
+        num_slides = 10
     elif fmt == "carousel":
         num_slides = 6
     else:
         num_slides = 1
+    # Allow override from frontend (up to 20 for Instagram max)
+    num_slides = min(int(data.get("num_slides", num_slides)), 20)
     ig_handle = brand_data.get("instagram", "@brand")
 
     # Mini carousel special instructions

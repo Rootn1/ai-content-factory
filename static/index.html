@@ -625,17 +625,27 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
-        <label class="form-label">Bio Autore</label>
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
-          <div id="authorBioPreview" style="width:48px;height:48px;border-radius:50%;background:var(--surface);border:2px dashed var(--border-light);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-dim)">
-            <span id="authorBioAvatar">&#128100;</span>
+        <label class="form-label">Elementi nelle slide</label>
+        <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:12px">
+          <!-- Author bio card -->
+          <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
+            <div id="authorBioPreview" style="width:44px;height:44px;border-radius:50%;background:#222;border:2px solid var(--accent);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)">
+              <span id="authorBioAvatar">&#128100;</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <input class="form-input" id="fAuthorName" placeholder="Nome autore" style="font-size:13px;padding:4px 8px;margin-bottom:4px;font-weight:600">
+              <input class="form-input" id="fAuthorTitle" placeholder="Titolo / ruolo" style="font-size:11px;padding:3px 8px;color:var(--text-dim)">
+            </div>
           </div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
-            <input class="form-input" id="fAuthorName" placeholder="Nome — es: Dott. Davide Del Medico" style="font-size:13px;padding:6px 10px">
-            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista specializzato in centri estetici" style="font-size:12px;padding:5px 10px;color:var(--text-dim)">
+          <!-- Logo position indicator -->
+          <div style="flex:0 0 auto;text-align:center">
+            <div id="logoBioPreview" style="width:44px;height:44px;border-radius:6px;background:#222;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)">
+              <span id="logoBioIcon">&#128247;</span>
+            </div>
+            <span style="font-size:9px;color:var(--text-dim);margin-top:3px;display:block">Logo &#8599; top-left</span>
           </div>
         </div>
-        <p class="form-hint">Carica la foto autore in Brand Intelligence. Nome e titolo appariranno nelle slide con la bio.</p>
+        <p class="form-hint">Foto e logo vengono da Brand Intelligence. Nome e titolo si auto-compilano dall'analisi URL.</p>
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
@@ -990,6 +1000,7 @@ function handleLogoUpload(e) {
   reader.onload = (ev) => {
     state.logoB64 = ev.target.result;
     document.getElementById('logoPreview').innerHTML = `<img src="${ev.target.result}" style="height:40px;border-radius:4px;border:1px solid var(--border)">`;
+    updateAuthorBioPreview();
   };
   reader.readAsDataURL(file);
 }
@@ -1006,13 +1017,24 @@ function handleAuthorUpload(e) {
 }
 function updateAuthorBioPreview() {
   const wrap = document.getElementById('authorBioPreview');
-  if (!wrap) return;
-  if (state.authorB64) {
-    wrap.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
-    wrap.style.border = '2px solid var(--accent)';
-  } else {
-    wrap.innerHTML = '<span id="authorBioAvatar">&#128100;</span>';
-    wrap.style.border = '2px dashed var(--border-light)';
+  if (wrap) {
+    if (state.authorB64) {
+      wrap.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
+      wrap.style.border = '2px solid var(--accent)';
+    } else {
+      wrap.innerHTML = '<span id="authorBioAvatar">&#128100;</span>';
+      wrap.style.border = '2px solid var(--border)';
+    }
+  }
+  const logoWrap = document.getElementById('logoBioPreview');
+  if (logoWrap) {
+    if (state.logoB64) {
+      logoWrap.innerHTML = `<img src="${state.logoB64}" style="width:100%;height:100%;object-fit:contain;padding:4px">`;
+      logoWrap.style.border = '1px solid var(--accent)';
+    } else {
+      logoWrap.innerHTML = '<span id="logoBioIcon">&#128247;</span>';
+      logoWrap.style.border = '1px solid var(--border)';
+    }
   }
 }
 
@@ -1122,6 +1144,17 @@ function fillBrandForm(data) {
   if (document.getElementById('fUrl').value.trim() || state.paletteImage) {
     document.getElementById('btnRetryPalette').style.display = '';
   }
+  // Auto-fill author bio from brand data
+  if (data.notes) {
+    const nameEl = document.getElementById('fAuthorName');
+    if (nameEl && !nameEl.value) nameEl.value = data.notes.split(',')[0].trim().substring(0, 60);
+  }
+  if (data.niche) {
+    const titleEl = document.getElementById('fAuthorTitle');
+    if (titleEl && !titleEl.value) titleEl.value = data.niche.substring(0, 80);
+  }
+  // Update bio preview with author photo if available
+  updateAuthorBioPreview();
   if (data.heading_font) {
     document.getElementById('fHeadingFont').value = data.heading_font;
     document.getElementById('previewHeading').style.fontFamily = data.heading_font + ', sans-serif';
@@ -1367,7 +1400,8 @@ function renderCalendar() {
       <td style="color:var(--text-bright)">${e.topic}</td>
       <td><span class="badge badge-${cat}">${e.content_type}</span></td>
       <td><select class="format-select" onchange="state.calendar[${i}].format=this.value">
-        <option value="carousel" ${e.format==='carousel'?'selected':''}>Carosello</option>
+        <option value="carousel" ${e.format==='carousel'?'selected':''}>Carosello (6 slide)</option>
+        <option value="carousel10" ${e.format==='carousel10'?'selected':''}>Carosello lungo (10 slide)</option>
         <option value="mini" ${e.format==='mini'?'selected':''}>Mini carosello (2 slide)</option>
         <option value="single" ${e.format==='single'?'selected':''}>Post singolo</option>
       </select></td>`;
@@ -1472,18 +1506,37 @@ async function generateCopy() {
 function renderCopy(data) {
   const cards = document.getElementById('slidesCards');
   cards.innerHTML = '';
-  (data.slides || []).forEach((s, i) => {
+  const slides = data.slides || [];
+  slides.forEach((s, i) => {
     const card = document.createElement('div');
     card.className = 'slide-card';
     card.innerHTML = `
       <div class="slide-card-header">
         <span class="slide-card-num">SLIDE ${s.index || i+1}</span>
         <span class="slide-card-type">${s.type}</span>
+        <span style="margin-left:auto;display:flex;gap:4px">
+          <select style="font-size:10px;padding:1px 4px;background:var(--surface);border:1px solid var(--border);border-radius:3px;color:var(--text-dim)" onchange="changeSlideType(${i},this.value)">
+            <option value="hero" ${s.type==='hero'?'selected':''}>hero</option>
+            <option value="body" ${s.type==='body'?'selected':''}>body</option>
+            <option value="cta" ${s.type==='cta'?'selected':''}>cta</option>
+          </select>
+          ${slides.length > 1 ? `<button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:0 2px" onclick="removeSlide(${i})" title="Rimuovi slide">&times;</button>` : ''}
+        </span>
       </div>
       <input class="slide-editable slide-heading" value="${escHtml(s.heading||'')}" onchange="updateSlide(${i},'heading',this.value)">
       <textarea class="slide-editable" rows="3" onchange="updateSlide(${i},'body',this.value)">${escHtml(s.body||'')}</textarea>`;
     cards.appendChild(card);
   });
+  // Add slide button (max 20)
+  if (slides.length < 20) {
+    const addBtn = document.createElement('div');
+    addBtn.style.cssText = 'border:1px dashed var(--border-light);border-radius:var(--radius-sm);padding:10px;text-align:center;cursor:pointer;color:var(--text-dim);font-size:12px;transition:all .2s';
+    addBtn.innerHTML = '+ Aggiungi slide';
+    addBtn.onmouseover = () => addBtn.style.borderColor = 'var(--accent)';
+    addBtn.onmouseout = () => addBtn.style.borderColor = 'var(--border-light)';
+    addBtn.onclick = () => addSlide();
+    cards.appendChild(addBtn);
+  }
 
   // Full copy block
   const fullText = (data.slides||[]).map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
@@ -1497,6 +1550,36 @@ function renderCopy(data) {
   document.getElementById('captionArea').value = data.caption || '';
 }
 
+function addSlide() {
+  if (!state.currentCopy?.slides) return;
+  const slides = state.currentCopy.slides;
+  if (slides.length >= 20) { toast('Massimo 20 slide per carosello Instagram', 'error'); return; }
+  const newIdx = slides.length + 1;
+  slides.push({index: newIdx, type: 'body', heading: '', body: ''});
+  reindexSlides();
+  renderCopy(state.currentCopy);
+  renderPreview();
+  renderGeminiList();
+  toast(`Slide ${newIdx} aggiunta`, 'success');
+}
+function removeSlide(idx) {
+  if (!state.currentCopy?.slides || state.currentCopy.slides.length <= 1) return;
+  state.currentCopy.slides.splice(idx, 1);
+  reindexSlides();
+  renderCopy(state.currentCopy);
+  renderPreview();
+  renderGeminiList();
+}
+function changeSlideType(idx, type) {
+  if (state.currentCopy?.slides?.[idx]) {
+    state.currentCopy.slides[idx].type = type;
+    renderPreview();
+  }
+}
+function reindexSlides() {
+  if (!state.currentCopy?.slides) return;
+  state.currentCopy.slides.forEach((s, i) => s.index = i + 1);
+}
 function updateSlide(idx, field, val) {
   if (state.currentCopy?.slides?.[idx]) {
     state.currentCopy.slides[idx][field] = val;
