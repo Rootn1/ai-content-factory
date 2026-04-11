@@ -625,6 +625,20 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+        <label class="form-label">Bio Autore</label>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+          <div id="authorBioPreview" style="width:48px;height:48px;border-radius:50%;background:var(--surface);border:2px dashed var(--border-light);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-dim)">
+            <span id="authorBioAvatar">&#128100;</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <input class="form-input" id="fAuthorName" placeholder="Nome — es: Dott. Davide Del Medico" style="font-size:13px;padding:6px 10px">
+            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista specializzato in centri estetici" style="font-size:12px;padding:5px 10px;color:var(--text-dim)">
+          </div>
+        </div>
+        <p class="form-hint">Carica la foto autore in Brand Intelligence. Nome e titolo appariranno nelle slide con la bio.</p>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
         <label class="form-label">Elementi Visivi (istruzioni per Gemini)</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
@@ -672,27 +686,19 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content">
-      <div id="geminiSlideList" style="margin-bottom:12px"></div>
+      <div id="geminiSlideList" style="margin-bottom:16px"></div>
 
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">Bio Autore (inclusa nelle slide)</label>
-        <div class="form-row">
-          <input class="form-input" id="fAuthorName" placeholder="Es: Dott. Davide Del Medico" style="flex:1">
-          <input class="form-input" id="fAuthorTitle" placeholder="Es: Commercialista specializzato in centri estetici" style="flex:2">
-        </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label" style="font-size:11px;color:var(--text-dim);letter-spacing:.5px">ISTRUZIONI AGGIUNTIVE</label>
+        <textarea class="form-textarea" id="fGeminiInstructions" rows="2" placeholder="Es: Usa stile minimal con icone flat, colori pastello, sfondo con texture carta..." style="font-size:12px"></textarea>
       </div>
 
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">Istruzioni aggiuntive per Gemini</label>
-        <textarea class="form-textarea" id="fGeminiInstructions" rows="2" placeholder="Es: Usa stile minimal con icone flat, colori pastello, sfondo con texture carta..."></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="generateImages()" style="flex:none">Genera le slide</button>
+        <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()" style="flex:none">&#128230; Scarica ZIP</button>
+        <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generazione...</span></div>
       </div>
-
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="generateImages()">Genera le slide</button>
-        <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()">Scarica ZIP</button>
-        <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generando slide 1/6...</span></div>
-      </div>
-      <div class="progress-bar hidden" id="imgProgressBar" style="margin-top:8px"><div class="progress-fill" id="imgProgressFill"></div></div>
+      <div class="progress-bar hidden" id="imgProgressBar" style="margin-top:10px"><div class="progress-fill" id="imgProgressFill"></div></div>
     </div>
   </div>
 </div>
@@ -994,8 +1000,20 @@ function handleAuthorUpload(e) {
   reader.onload = (ev) => {
     state.authorB64 = ev.target.result;
     document.getElementById('authorPreview').innerHTML = `<img src="${ev.target.result}" style="height:48px;width:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">`;
+    updateAuthorBioPreview();
   };
   reader.readAsDataURL(file);
+}
+function updateAuthorBioPreview() {
+  const wrap = document.getElementById('authorBioPreview');
+  if (!wrap) return;
+  if (state.authorB64) {
+    wrap.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
+    wrap.style.border = '2px solid var(--accent)';
+  } else {
+    wrap.innerHTML = '<span id="authorBioAvatar">&#128100;</span>';
+    wrap.style.border = '2px dashed var(--border-light)';
+  }
 }
 
 // =================================================================
@@ -1806,7 +1824,6 @@ function getSlideHTML(slide, idx, includeImages=false) {
       <div style="position:relative;z-index:1;text-align:${ta};padding:50px 30px 60px;width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};margin-bottom:12px">${escHtml(slide.heading||'')}</div>
         <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px;${bodyTransform}">${escHtml(slide.body||'')}</div>
-        <div style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:6px;font-family:'${fb}',sans-serif;font-size:13px;font-weight:600">Scopri di più</div>
       </div>`;
   } else if (layout === 'titolo + img') {
     content = `
@@ -2063,13 +2080,25 @@ function closeLightbox() {
 function renderGeminiList() {
   if (!state.currentCopy?.slides) return;
   const list = document.getElementById('geminiSlideList');
-  list.innerHTML = state.currentCopy.slides.map((s, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
-      <span class="status-dot ${s.img_b64?'status-done':'status-todo'}"></span>
-      <span style="color:var(--text-dim)">Slide ${s.index||i+1}</span>
-      <span style="color:var(--text);flex:1">${s.type}</span>
-      ${s.img_b64 ? `<span style="color:var(--text-dim);cursor:pointer;font-size:11px" onclick="regenSlide(${i})" title="Rigenera questa slide">&#x21bb;</span>` : ''}
-    </div>`).join('');
+  const total = state.currentCopy.slides.length;
+  const done = state.currentCopy.slides.filter(s => s.img_b64).length;
+  const typeLabels = {hero:'Cover',body:'Corpo',cta:'CTA'};
+  list.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:12px;color:var(--text-dim)">${done}/${total} generate</span>
+      <div style="flex:1;margin:0 12px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div style="width:${total?((done/total)*100):0}%;height:100%;background:var(--accent);border-radius:2px;transition:width .3s"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+    ${state.currentCopy.slides.map((s, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${s.img_b64?'rgba(76,175,80,.08)':'var(--surface)'};border:1px solid ${s.img_b64?'rgba(76,175,80,.25)':'var(--border)'};border-radius:6px;font-size:12px;transition:all .2s">
+        <span style="width:8px;height:8px;border-radius:50%;background:${s.img_b64?'#4caf50':'var(--border-light)'};flex-shrink:0"></span>
+        <span style="color:var(--text-dim);flex-shrink:0">${s.index||i+1}</span>
+        <span style="color:var(--text);flex:1;font-weight:500">${typeLabels[s.type]||s.type}</span>
+        ${s.img_b64 ? `<span style="color:var(--accent);cursor:pointer;font-size:14px;line-height:1" onclick="regenSlide(${i})" title="Rigenera">&#x21bb;</span>` : ''}
+      </div>`).join('')}
+    </div>`;
 }
 
 async function regenSlide(idx) {

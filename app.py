@@ -1086,8 +1086,8 @@ async def export_zip(request: Request):
                 for f in sorted(images_dir.iterdir()):
                     if f.suffix.lower() == ".png":
                         zf.write(f, prefix + "slides/" + f.name)
-            # Add caption
-            for fname in ["caption.txt"]:
+            # Add caption + reel script
+            for fname in ["caption.txt", "script_reel.txt"]:
                 fp = post_dir / fname
                 if fp.exists():
                     zf.write(fp, prefix + fname)
