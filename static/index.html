@@ -309,20 +309,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <div class="form-hint">Digita e premi Enter per aggiungere, X per rimuovere</div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">Immagini di riferimento brand</label>
-      <!-- URL image input -->
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input class="form-input" id="fImageUrl" placeholder="Incolla URL immagine (https://...)" style="flex:1">
-        <button class="btn btn-sm btn-secondary" onclick="addImageFromUrl()">Aggiungi</button>
-      </div>
-      <div class="drop-area" id="dropRef" ondrop="handleRefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('refFileInput').click()">
-        <div class="drop-area-text">Foto del prodotto, autore, stile visivo — usate come reference per i contenuti</div>
-        <div class="drop-thumbs" id="refThumbs"></div>
-        <input type="file" id="refFileInput" accept="image/*" multiple style="display:none" onchange="handleRefFiles(event)">
-      </div>
-      <!-- Site images picker (populated after URL fetch) -->
-      <div id="siteImagesArea" class="hidden" style="margin-top:12px">
+    <!-- Site images picker (populated after URL fetch) — ref images moved to Design & Layout -->
+    <div id="siteImagesArea" class="hidden">
+      <div class="form-group">
         <label class="form-label">Immagini trovate sul sito — clicca per selezionare</label>
         <div id="siteImagesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px"></div>
       </div>
@@ -498,37 +487,55 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content">
-      <!-- A) Logo & Foto Autore -->
+      <!-- A) Immagini di Riferimento (drop area + URL) -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Immagini di Riferimento</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="form-input" id="fImageUrl" placeholder="Incolla URL immagine (https://...)" style="flex:1">
+          <button class="btn btn-sm btn-secondary" onclick="addImageFromUrl()">Aggiungi</button>
+        </div>
+        <div class="drop-area" id="dropRef" ondrop="handleRefDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('refFileInput').click()" style="min-height:60px;padding:12px">
+          <div class="drop-area-text" style="font-size:11px">Trascina qui foto prodotto, stile visivo o reference</div>
+          <div class="drop-thumbs" id="refThumbs" style="margin-top:6px"></div>
+          <input type="file" id="refFileInput" accept="image/*" multiple style="display:none" onchange="handleRefFiles(event)">
+        </div>
+      </div>
+
+      <!-- B) Logo & Foto Autore -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Logo & Foto Autore</label>
-        <div style="display:flex;gap:16px">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <div id="logoBioPreview" style="width:40px;height:40px;border-radius:6px;background:#222;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)"><span id="logoBioIcon">&#128247;</span></div>
-              <div style="flex:1"><input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:6px;font-size:11px" onchange="handleLogoUpload(event)"></div>
-            </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <!-- Logo -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+            <div id="logoBioPreview" style="width:56px;height:56px;border-radius:8px;background:#181818;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-dim);margin:0 auto 10px"><span id="logoBioIcon">&#128247;</span></div>
+            <label class="btn btn-sm btn-secondary" style="cursor:pointer;display:inline-block;margin-bottom:8px">
+              Carica logo
+              <input type="file" id="fLogo" accept=".svg,.png,.webp" style="display:none" onchange="handleLogoUpload(event)">
+            </label>
             <div id="logoPreview"></div>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkLogo" checked> Mostra logo nelle slide <span style="font-size:10px;opacity:.6">(top-left)</span></label>
+            <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkLogo" checked> Mostra nelle slide</label>
           </div>
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <div id="authorBioPreview" style="width:40px;height:40px;border-radius:50%;background:#222;border:2px solid var(--accent);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim)"><span id="authorBioAvatar">&#128100;</span></div>
-              <div style="flex:1"><input type="file" class="form-input" id="fAuthor" accept="image/*" style="padding:6px;font-size:11px" onchange="handleAuthorUpload(event)"></div>
-            </div>
+          <!-- Foto Autore -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+            <div id="authorBioPreview" style="width:56px;height:56px;border-radius:50%;background:#181818;border:2px solid var(--accent);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-dim);margin:0 auto 10px;flex-shrink:0"><span id="authorBioAvatar">&#128100;</span></div>
+            <label class="btn btn-sm btn-secondary" style="cursor:pointer;display:inline-block;margin-bottom:8px">
+              Carica foto autore
+              <input type="file" id="fAuthor" accept="image/*" style="display:none" onchange="handleAuthorUpload(event)">
+            </label>
             <div id="authorPreview"></div>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkAuthor"> Mostra bio autore nelle slide</label>
+            <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkAuthor"> Mostra bio nelle slide</label>
           </div>
         </div>
       </div>
 
-      <!-- B) Bio Autore -->
+      <!-- C) Bio Autore -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Bio Autore (testo nelle slide)</label>
-        <div style="display:flex;gap:12px;align-items:center">
-          <div id="authorBioThumb" style="width:48px;height:48px;border-radius:50%;background:#222;border:2px solid var(--border);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)"><span>&#128100;</span></div>
+        <div style="display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">
+          <div id="authorBioThumb" style="width:48px;height:48px;border-radius:50%;background:#181818;border:2px solid var(--border);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)"><span>&#128100;</span></div>
           <div style="flex:1;display:flex;flex-direction:column;gap:4px">
-            <input class="form-input" id="fAuthorName" placeholder="Nome autore — es: Dott. Davide Del Medico" style="font-size:13px;padding:5px 8px;font-weight:600">
-            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista per centri estetici" style="font-size:11px;padding:4px 8px;color:var(--text-dim)">
+            <input class="form-input" id="fAuthorName" placeholder="Nome autore — es: Dott. Davide Del Medico" style="font-size:13px;padding:5px 8px;font-weight:600;background:transparent;border-color:var(--border)">
+            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista per centri estetici" style="font-size:11px;padding:4px 8px;color:var(--text-dim);background:transparent;border-color:var(--border)">
           </div>
         </div>
         <p class="form-hint">Si auto-compila dall'analisi URL. La foto si aggiorna dalla sezione sopra.</p>
@@ -1000,8 +1007,8 @@ function handleLogoUpload(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     state.logoB64 = ev.target.result;
-    document.getElementById('logoPreview').innerHTML = `<img src="${ev.target.result}" style="height:40px;border-radius:4px;border:1px solid var(--border)">`;
     updateAuthorBioPreview();
+    renderPreview();
   };
   reader.readAsDataURL(file);
 }
@@ -1011,8 +1018,8 @@ function handleAuthorUpload(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     state.authorB64 = ev.target.result;
-    document.getElementById('authorPreview').innerHTML = `<img src="${ev.target.result}" style="height:48px;width:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">`;
     updateAuthorBioPreview();
+    renderPreview();
   };
   reader.readAsDataURL(file);
 }
@@ -1983,7 +1990,10 @@ function renderPreview() {
     div.style.aspectRatio = arMap[state.aspect] || '4/5';
     const contrast = checkSlideContrast(slide, i);
     const warn = (!contrast.textOk || !contrast.dimOk) ? `<span title="Contrasto basso: heading ${contrast.crText}:1, body ${contrast.crDim}:1" style="position:absolute;top:6px;right:6px;font-size:14px;z-index:10;filter:drop-shadow(0 0 2px rgba(0,0,0,.8))">&#9888;</span>` : '';
-    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + getSlideHTML(slide, i).replace(/width:\d+px/g, 'width:100%').replace(/height:\d+px/g, 'height:100%');
+    // Only replace the outermost container dimensions (first occurrence)
+    let slideHtml = getSlideHTML(slide, i);
+    slideHtml = slideHtml.replace(/width:\d+px/, 'width:100%').replace(/height:\d+px/, 'height:100%');
+    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + slideHtml;
     div.onclick = () => openLightbox(i);
     grid.appendChild(div);
   });
