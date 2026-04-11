@@ -296,19 +296,6 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <textarea class="form-textarea" id="fTarget" rows="2" placeholder="Es: Freelance 25-40 anni, reddito instabile, vuole sicurezza economica"></textarea>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Heading Font</label>
-        <input class="form-input" id="fHeadingFont" value="Poppins" placeholder="Poppins">
-        <div style="margin-top:6px;font-size:16px;font-weight:700" id="previewHeading">Anteprima Heading</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Body Font</label>
-        <input class="form-input" id="fBodyFont" value="DM Sans" placeholder="DM Sans">
-        <div style="margin-top:6px;font-size:14px" id="previewBody">Anteprima testo body</div>
-      </div>
-    </div>
-
     <div class="form-group">
       <label class="form-label">Profilo Instagram</label>
       <input class="form-input" id="fInstagram" placeholder="@tuobrand">
@@ -320,24 +307,6 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <input class="tag-input" id="tagInput" placeholder="Aggiungi keyword..." onkeydown="handleTagKey(event)">
       </div>
       <div class="form-hint">Digita e premi Enter per aggiungere, X per rimuovere</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Color Palette</label>
-      <div class="palette-row" id="paletteRow"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-sm btn-secondary" onclick="addColor()">+ Colore</button>
-        <button class="btn btn-sm btn-secondary" id="btnRetryPalette" style="display:none" onclick="retryExtractPalette()" title="Riestrai palette dalla URL">&#x21bb; Riestrai</button>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Immagine di riferimento palette</label>
-      <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="if(!state.paletteImage)document.getElementById('paletteFileInput').click()">
-        <div class="drop-area-text">Trascina o clicca per caricare un'immagine da cui estrarre la palette</div>
-        <div class="drop-thumbs" id="paletteThumbs"></div>
-        <input type="file" id="paletteFileInput" accept="image/*" style="display:none" onchange="handlePaletteFile(event)">
-      </div>
     </div>
 
     <div class="form-group">
@@ -359,34 +328,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Logo brand</label>
-        <input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:8px" onchange="handleLogoUpload(event)">
-        <div id="logoPreview" style="margin-top:6px"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Foto autore / volto brand</label>
-        <input type="file" class="form-input" id="fAuthor" accept="image/*" style="padding:8px" onchange="handleAuthorUpload(event)">
-        <div id="authorPreview" style="margin-top:6px"></div>
-      </div>
-    </div>
-
     <div class="form-group">
       <label class="form-label">Note aggiuntive</label>
       <textarea class="form-textarea" id="fNotes" rows="3" placeholder="Es: Non parlare mai di prezzi nella prima settimana. Evitare tono aggressivo..."></textarea>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Elementi da includere nelle slide</label>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="checkbox" id="chkLogo" checked> Includi logo nelle slide
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="checkbox" id="chkAuthor"> Includi foto autore nelle slide
-        </label>
-      </div>
     </div>
 
     <div style="display:flex;gap:12px;align-items:center;padding-top:12px;border-top:1px solid var(--border)">
@@ -554,7 +498,44 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <span class="block-arrow">&#9660;</span>
     </div>
     <div class="block-content">
-      <div class="form-group">
+      <!-- A) Logo & Foto Autore -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Logo & Foto Autore</label>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <div id="logoBioPreview" style="width:40px;height:40px;border-radius:6px;background:#222;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)"><span id="logoBioIcon">&#128247;</span></div>
+              <div style="flex:1"><input type="file" class="form-input" id="fLogo" accept=".svg,.png,.webp" style="padding:6px;font-size:11px" onchange="handleLogoUpload(event)"></div>
+            </div>
+            <div id="logoPreview"></div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkLogo" checked> Mostra logo nelle slide <span style="font-size:10px;opacity:.6">(top-left)</span></label>
+          </div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <div id="authorBioPreview" style="width:40px;height:40px;border-radius:50%;background:#222;border:2px solid var(--accent);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim)"><span id="authorBioAvatar">&#128100;</span></div>
+              <div style="flex:1"><input type="file" class="form-input" id="fAuthor" accept="image/*" style="padding:6px;font-size:11px" onchange="handleAuthorUpload(event)"></div>
+            </div>
+            <div id="authorPreview"></div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-top:6px;color:var(--text-dim)"><input type="checkbox" id="chkAuthor"> Mostra bio autore nelle slide</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- B) Bio Autore -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Bio Autore (testo nelle slide)</label>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div id="authorBioThumb" style="width:48px;height:48px;border-radius:50%;background:#222;border:2px solid var(--border);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)"><span>&#128100;</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <input class="form-input" id="fAuthorName" placeholder="Nome autore — es: Dott. Davide Del Medico" style="font-size:13px;padding:5px 8px;font-weight:600">
+            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista per centri estetici" style="font-size:11px;padding:4px 8px;color:var(--text-dim)">
+          </div>
+        </div>
+        <p class="form-hint">Si auto-compila dall'analisi URL. La foto si aggiorna dalla sezione sopra.</p>
+      </div>
+
+      <!-- C) Color Palette -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Palette Colori</label>
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <button class="toggle-btn" id="palTabBrand" onclick="showPaletteTab('brand',this)">Brand</button>
@@ -563,31 +544,72 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
           <button class="toggle-btn" onclick="showPaletteTab('custom',this)">Personalizza</button>
         </div>
         <div id="palettePresetsArea"></div>
+        <div class="palette-row" id="paletteRow" style="margin-top:10px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-sm btn-secondary" onclick="addColor()">+ Colore</button>
+          <button class="btn btn-sm btn-secondary" id="btnRetryPalette" style="display:none" onclick="retryExtractPalette()">&#x21bb; Riestrai</button>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="if(!state.paletteImage)document.getElementById('paletteFileInput').click()" style="padding:16px">
+            <div class="drop-area-text" style="font-size:12px">Trascina immagine per estrarre palette</div>
+            <div class="drop-thumbs" id="paletteThumbs"></div>
+            <input type="file" id="paletteFileInput" accept="image/*" style="display:none" onchange="handlePaletteFile(event)">
+          </div>
+        </div>
       </div>
-      <div class="form-group">
+
+      <!-- D) Font -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Font</label>
         <div class="font-presets" id="fontPresets"></div>
       </div>
-      <div class="form-group">
+
+      <!-- E) Layout -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Layout</label>
         <div class="layout-presets" id="layoutPresets"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Allineamento — Slide 1 (Hero/Cover)</label>
-        <div style="display:flex;gap:6px" id="alignHeroBtns">
-          <button class="toggle-btn" onclick="setAlignHero('left',this)">&#9664; Sx</button>
-          <button class="toggle-btn active" onclick="setAlignHero('center',this)">&#9632; Centro</button>
-          <button class="toggle-btn" onclick="setAlignHero('right',this)">Dx &#9654;</button>
+
+      <!-- F) Alignment — 4 controls -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <label class="form-label">Allineamento Testo</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Headline — Slide 1</span>
+            <div style="display:flex;gap:4px;margin-top:4px" id="alignHeadHeroBtns">
+              <button class="toggle-btn" onclick="setAlignField('headAlignHero','left',this)">&#9664;</button>
+              <button class="toggle-btn active" onclick="setAlignField('headAlignHero','center',this)">&#9632;</button>
+              <button class="toggle-btn" onclick="setAlignField('headAlignHero','right',this)">&#9654;</button>
+            </div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Headline — Slide successive</span>
+            <div style="display:flex;gap:4px;margin-top:4px" id="alignHeadBodyBtns">
+              <button class="toggle-btn" onclick="setAlignField('headAlignBody','left',this)">&#9664;</button>
+              <button class="toggle-btn active" onclick="setAlignField('headAlignBody','center',this)">&#9632;</button>
+              <button class="toggle-btn" onclick="setAlignField('headAlignBody','right',this)">&#9654;</button>
+            </div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Body — Slide 1</span>
+            <div style="display:flex;gap:4px;margin-top:4px" id="alignBodyHeroBtns">
+              <button class="toggle-btn" onclick="setAlignField('bodyAlignHero','left',this)">&#9664;</button>
+              <button class="toggle-btn active" onclick="setAlignField('bodyAlignHero','center',this)">&#9632;</button>
+              <button class="toggle-btn" onclick="setAlignField('bodyAlignHero','right',this)">&#9654;</button>
+            </div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">Body — Slide successive</span>
+            <div style="display:flex;gap:4px;margin-top:4px" id="alignBodyBodyBtns">
+              <button class="toggle-btn" onclick="setAlignField('bodyAlignBody','left',this)">&#9664;</button>
+              <button class="toggle-btn active" onclick="setAlignField('bodyAlignBody','center',this)">&#9632;</button>
+              <button class="toggle-btn" onclick="setAlignField('bodyAlignBody','right',this)">&#9654;</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Allineamento — Slide successive</label>
-        <div style="display:flex;gap:6px" id="alignBodyBtns">
-          <button class="toggle-btn" onclick="setAlignBody('left',this)">&#9664; Sx</button>
-          <button class="toggle-btn active" onclick="setAlignBody('center',this)">&#9632; Centro</button>
-          <button class="toggle-btn" onclick="setAlignBody('right',this)">Dx &#9654;</button>
-        </div>
-      </div>
+
+      <!-- G) Vertical position + body offset + sizes -->
       <div class="form-group">
         <label class="form-label">Posizione verticale (contenitore)</label>
         <div style="display:flex;gap:6px" id="vAlignBtns">
@@ -624,30 +646,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         </div>
       </div>
 
-      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
-        <label class="form-label">Elementi nelle slide</label>
-        <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:12px">
-          <!-- Author bio card -->
-          <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
-            <div id="authorBioPreview" style="width:44px;height:44px;border-radius:50%;background:#222;border:2px solid var(--accent);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)">
-              <span id="authorBioAvatar">&#128100;</span>
-            </div>
-            <div style="flex:1;min-width:0">
-              <input class="form-input" id="fAuthorName" placeholder="Nome autore" style="font-size:13px;padding:4px 8px;margin-bottom:4px;font-weight:600">
-              <input class="form-input" id="fAuthorTitle" placeholder="Titolo / ruolo" style="font-size:11px;padding:3px 8px;color:var(--text-dim)">
-            </div>
-          </div>
-          <!-- Logo position indicator -->
-          <div style="flex:0 0 auto;text-align:center">
-            <div id="logoBioPreview" style="width:44px;height:44px;border-radius:6px;background:#222;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)">
-              <span id="logoBioIcon">&#128247;</span>
-            </div>
-            <span style="font-size:9px;color:var(--text-dim);margin-top:3px;display:block">Logo &#8599; top-left</span>
-          </div>
-        </div>
-        <p class="form-hint">Foto e logo vengono da Brand Intelligence. Nome e titolo si auto-compilano dall'analisi URL.</p>
-      </div>
-
+      <!-- H) Visual elements checkboxes -->
       <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
         <label class="form-label">Elementi Visivi (istruzioni per Gemini)</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
@@ -730,7 +729,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 </div><!-- /main -->
 
 <!-- Lightbox -->
-<div class="lightbox" id="lightbox">
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
   <div class="lightbox-inner" id="lightboxContent"></div>
 </div>
@@ -765,8 +764,10 @@ let state = {
     fontHeading: 'Poppins',
     fontBody: 'DM Sans',
     layout: 'centered',
-    textAlignHero: 'center',
-    textAlignBody: 'center',
+    headAlignHero: 'center',
+    headAlignBody: 'center',
+    bodyAlignHero: 'center',
+    bodyAlignBody: 'center',
     vAlign: 'center',
     bodyOffsetY: 0,
     titleSize: 100,
@@ -789,7 +790,7 @@ function goSection(name) {
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',textAlignHero:'center',textAlignBody:'center',vAlign:'center',bodyOffsetY:0,titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',headAlignHero:'center',headAlignBody:'center',bodyAlignHero:'center',bodyAlignBody:'center',vAlign:'center',bodyOffsetY:0,titleSize:100,subSize:100},refImages:[],paletteImage:null};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -1016,23 +1017,25 @@ function handleAuthorUpload(e) {
   reader.readAsDataURL(file);
 }
 function updateAuthorBioPreview() {
-  const wrap = document.getElementById('authorBioPreview');
-  if (wrap) {
+  // Update both author preview circles
+  ['authorBioPreview', 'authorBioThumb'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
     if (state.authorB64) {
-      wrap.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
-      wrap.style.border = '2px solid var(--accent)';
+      el.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
+      el.style.border = '2px solid var(--accent)';
     } else {
-      wrap.innerHTML = '<span id="authorBioAvatar">&#128100;</span>';
-      wrap.style.border = '2px solid var(--border)';
+      el.innerHTML = '<span>&#128100;</span>';
+      el.style.border = '2px solid var(--border)';
     }
-  }
+  });
   const logoWrap = document.getElementById('logoBioPreview');
   if (logoWrap) {
     if (state.logoB64) {
       logoWrap.innerHTML = `<img src="${state.logoB64}" style="width:100%;height:100%;object-fit:contain;padding:4px">`;
       logoWrap.style.border = '1px solid var(--accent)';
     } else {
-      logoWrap.innerHTML = '<span id="logoBioIcon">&#128247;</span>';
+      logoWrap.innerHTML = '<span>&#128247;</span>';
       logoWrap.style.border = '1px solid var(--border)';
     }
   }
@@ -1041,14 +1044,7 @@ function updateAuthorBioPreview() {
 // =================================================================
 // FONT PREVIEW
 // =================================================================
-document.getElementById('fHeadingFont').addEventListener('input', e => {
-  document.getElementById('previewHeading').style.fontFamily = e.target.value + ', sans-serif';
-  state.design.fontHeading = e.target.value;
-});
-document.getElementById('fBodyFont').addEventListener('input', e => {
-  document.getElementById('previewBody').style.fontFamily = e.target.value + ', sans-serif';
-  state.design.fontBody = e.target.value;
-});
+// Font selection is handled by selectFontPreset in Design & Layout
 
 // =================================================================
 // API HELPER
@@ -1156,13 +1152,9 @@ function fillBrandForm(data) {
   // Update bio preview with author photo if available
   updateAuthorBioPreview();
   if (data.heading_font) {
-    document.getElementById('fHeadingFont').value = data.heading_font;
-    document.getElementById('previewHeading').style.fontFamily = data.heading_font + ', sans-serif';
     state.design.fontHeading = data.heading_font;
   }
   if (data.body_font) {
-    document.getElementById('fBodyFont').value = data.body_font;
-    document.getElementById('previewBody').style.fontFamily = data.body_font + ', sans-serif';
     state.design.fontBody = data.body_font;
   }
 }
@@ -1213,8 +1205,8 @@ async function generatePillars() {
     instagram: document.getElementById('fInstagram').value,
     keywords: state.keywords,
     colors: state.colors,
-    heading_font: document.getElementById('fHeadingFont').value,
-    body_font: document.getElementById('fBodyFont').value,
+    heading_font: state.design.fontHeading,
+    body_font: state.design.fontBody,
     notes: document.getElementById('fNotes').value,
     author_type: document.querySelector('input[name="authorType"]:checked')?.value || 'photo',
   };
@@ -1795,15 +1787,9 @@ function getVisualElements() {
     shapes: document.getElementById('chkShapes')?.checked || false,
   };
 }
-function setAlignHero(align, btn) {
-  state.design.textAlignHero = align;
-  document.getElementById('alignHeroBtns').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderPreview();
-}
-function setAlignBody(align, btn) {
-  state.design.textAlignBody = align;
-  document.getElementById('alignBodyBtns').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+function setAlignField(field, val, btn) {
+  state.design[field] = val;
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderPreview();
 }
@@ -1864,7 +1850,8 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const fb = state.design.fontBody;
   const layout = state.design.layout;
   const isHero = slide.type === 'hero' || idx === 0;
-  const ta = isHero ? (state.design.textAlignHero || 'center') : (state.design.textAlignBody || 'center');
+  const headAlign = isHero ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center');
+  const bodyAlign = isHero ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center');
   const va = state.design.vAlign || 'center';
   const bodyOff = state.design.bodyOffsetY || 0;
   const bodyTransform = bodyOff !== 0 ? `transform:translateY(${bodyOff}px)` : '';
@@ -1898,15 +1885,15 @@ function getSlideHTML(slide, idx, includeImages=false) {
   let content = '';
   if (slide.type === 'hero') {
     content = `
-      <div style="position:relative;z-index:1;text-align:${ta};padding:50px 30px 40px;width:100%">
+      <div style="position:relative;z-index:1;text-align:${headAlign};padding:50px 30px 40px;width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin-bottom:16px">${escHtml(slide.heading||'')}</div>
-        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${14*ss}px;color:${dim};line-height:1.5;${bodyTransform}">${escHtml(slide.body||'')}</div>
+        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${14*ss}px;color:${dim};line-height:1.5;text-align:${bodyAlign};${bodyTransform}">${escHtml(slide.body||'')}</div>
       </div>`;
   } else if (slide.type === 'cta') {
     content = `
-      <div style="position:relative;z-index:1;text-align:${ta};padding:50px 30px 60px;width:100%">
+      <div style="position:relative;z-index:1;text-align:${headAlign};padding:50px 30px 60px;width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};margin-bottom:12px">${escHtml(slide.heading||'')}</div>
-        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px;${bodyTransform}">${escHtml(slide.body||'')}</div>
+        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};margin-bottom:20px;text-align:${bodyAlign};${bodyTransform}">${escHtml(slide.body||'')}</div>
       </div>`;
   } else if (layout === 'titolo + img') {
     content = `
@@ -1919,24 +1906,24 @@ function getSlideHTML(slide, idx, includeImages=false) {
             <span style="font-size:11px;color:${accent}88;font-family:'${fb}',sans-serif">Immagine</span>
           </div>
         </div>
-        <div class="slide-body-text" style="text-align:${ta};${bodyTransform}">
+        <div class="slide-body-text" style="text-align:${bodyAlign};${bodyTransform}">
           <div style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6">${escHtml(slide.body||'')}</div>
         </div>
       </div>`;
   } else if (layout === 'split') {
     content = `
       <div style="position:relative;z-index:1;padding:50px 30px 40px;display:flex;gap:16px;width:100%">
-        <div style="flex:1;text-align:${ta}">
+        <div style="flex:1;text-align:${headAlign}">
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
-          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;${bodyTransform}">${escHtml(slide.body||'')}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;text-align:${bodyAlign};${bodyTransform}">${escHtml(slide.body||'')}</div>
         </div>
         <div style="width:40%;background:${accent}20;border-radius:8px"></div>
       </div>`;
   } else {
     content = `
-      <div style="position:relative;z-index:1;padding:50px 30px 40px;text-align:${ta};width:100%">
+      <div style="position:relative;z-index:1;padding:50px 30px 40px;text-align:${headAlign};width:100%">
         <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:10px;line-height:1.3">${escHtml(slide.heading||'')}</div>
-        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;${bodyTransform}">${escHtml(slide.body||'')}</div>
+        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;text-align:${bodyAlign};${bodyTransform}">${escHtml(slide.body||'')}</div>
       </div>`;
   }
 
@@ -2209,6 +2196,14 @@ async function regenSlide(idx) {
       custom_instructions: customInstructions,
       total_slides: slides.length,
       visual_elements: getVisualElements(),
+      design_settings: {
+        headAlignHero: state.design.headAlignHero,
+        headAlignBody: state.design.headAlignBody,
+        bodyAlignHero: state.design.bodyAlignHero,
+        bodyAlignBody: state.design.bodyAlignBody,
+        vAlign: state.design.vAlign,
+        layout: state.design.layout,
+      },
     });
     if (result.slides_with_images?.[0]?.img_b64) {
       slides[idx].img_b64 = result.slides_with_images[0].img_b64;
@@ -2279,6 +2274,14 @@ async function generateImages() {
           custom_instructions: customInstructions,
           total_slides: slides.length,
           visual_elements: getVisualElements(),
+          design_settings: {
+            headAlignHero: state.design.headAlignHero,
+            headAlignBody: state.design.headAlignBody,
+            bodyAlignHero: state.design.bodyAlignHero,
+            bodyAlignBody: state.design.bodyAlignBody,
+            vAlign: state.design.vAlign,
+            layout: state.design.layout,
+          },
         });
         if (result.slides_with_images?.[0]?.img_b64) {
           slides[i].img_b64 = result.slides_with_images[0].img_b64;

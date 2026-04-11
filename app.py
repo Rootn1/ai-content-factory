@@ -771,6 +771,7 @@ async def generate_images(request: Request):
     custom_instructions = data.get("custom_instructions", "")
     total_slides = data.get("total_slides", len(slides))
     visual_elements = data.get("visual_elements", {})
+    design_settings = data.get("design_settings", {})
 
     palette_desc = ", ".join(palette[:5])
     mood = brand_data.get("tone", "professional")
@@ -800,6 +801,13 @@ async def generate_images(request: Request):
         body_text = slide.get("body", "")
         slide_idx = slide.get("index", 1)
         ref_b64 = slide.get("reference_png")
+
+        # Determine alignment for this slide based on type
+        is_hero = st == "hero" or slide_idx == 1
+        head_align = design_settings.get("headAlignHero" if is_hero else "headAlignBody", "center")
+        body_align = design_settings.get("bodyAlignHero" if is_hero else "bodyAlignBody", "center")
+        v_align = design_settings.get("vAlign", "center")
+        layout_style = design_settings.get("layout", "centered")
 
         # Build reference images list
         ref_images = []
@@ -863,7 +871,17 @@ async def generate_images(request: Request):
                 f"You are a world-class Instagram content designer. "
                 f"I'm providing a reference layout image for slide {slide_idx}/{total_slides} of an Instagram carousel. "
                 f"RECREATE this slide as a stunning, scroll-stopping, professionally designed Instagram image. "
-                f"\n\nDESIGN REQUIREMENTS:\n"
+                f"\n\nCRITICAL — FOLLOW THE REFERENCE LAYOUT EXACTLY:\n"
+                f"- Match the TEXT ALIGNMENT from the reference image precisely (left-aligned, center-aligned, or right-aligned).\n"
+                f"- Match the VERTICAL POSITION of text elements (top, center, bottom of slide).\n"
+                f"- Match the SPACING and POSITIONING between heading and body text.\n"
+                f"- If text is left-aligned in the reference, your output MUST be left-aligned. Same for center or right.\n"
+                f"- The reference image defines the layout structure — your job is to make it visually stunning while preserving that exact layout.\n"
+                f"\nEXPLICIT ALIGNMENT SETTINGS (MUST FOLLOW):\n"
+                f"- Heading text alignment: {head_align.upper()}\n"
+                f"- Body text alignment: {body_align.upper()}\n"
+                f"- Vertical text position: {v_align.upper()} of slide\n"
+                f"\nDESIGN REQUIREMENTS:\n"
                 f"- Color palette: {palette_desc}\n"
                 f"- Brand sector: {sector}\n"
                 f"- Mood/tone: {mood}\n"
@@ -889,6 +907,11 @@ async def generate_images(request: Request):
             )
         else:
             # NO REFERENCE — generate from scratch with rich prompts
+            alignment_instruction = (
+                f"TEXT ALIGNMENT: Heading must be {head_align.upper()}-aligned. "
+                f"Body text must be {body_align.upper()}-aligned. "
+                f"Text positioned at the {v_align.upper()} of the slide. "
+            )
             if st == "hero":
                 hero_visual = ""
                 if hero_image_requested:
@@ -904,6 +927,7 @@ async def generate_images(request: Request):
                     f"Color palette: {palette_desc}. Mood: {mood}. "
                     f"Premium graphic design with decorative elements, shapes, gradients. "
                     f"FILL ALL EMPTY SPACE with visual accents, patterns, or decorative elements. "
+                    f"{alignment_instruction}"
                     f"{hero_visual}"
                     f"{'Include the brand logo from the reference image in top-left corner. ' if logo_b64 else ''}"
                     f"{'Include the author photo from reference as a circular profile picture. ' if author_b64 else ''}"
@@ -920,6 +944,7 @@ async def generate_images(request: Request):
                     f"Color palette: {palette_desc}. Sector: {sector}. "
                     f"Clean, professional infographic style that people want to SAVE and SHARE. "
                     f"FILL ALL EMPTY SPACE with visual accents. "
+                    f"{alignment_instruction}"
                     f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
@@ -932,6 +957,7 @@ async def generate_images(request: Request):
                     f"Make the numbers POP with oversized bold typography. "
                     f"FILL ALL EMPTY SPACE with visual accents. "
                     f"Color palette: {palette_desc}. Sector: {sector}. "
+                    f"{alignment_instruction}"
                     f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
@@ -943,6 +969,7 @@ async def generate_images(request: Request):
                     f"Design as a visual mind-map with connected nodes, flowchart arrows, and structured layout. "
                     f"Color palette: {palette_desc}. Sector: {sector}. "
                     f"Infographic style, clean and educational. FILL ALL EMPTY SPACE. "
+                    f"{alignment_instruction}"
                     f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
@@ -955,6 +982,7 @@ async def generate_images(request: Request):
                     f"{'Include the author photo from reference as a circular profile picture with name and title. ' if author_b64 else ''}"
                     f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
                     f"FILL ALL EMPTY SPACE with decorative elements. "
+                    f"{alignment_instruction}"
                     f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
@@ -967,6 +995,7 @@ async def generate_images(request: Request):
                     f"Add subtle graphics, icons, accent shapes that support the content. "
                     f"FILL ALL EMPTY SPACE — no large blank areas. Use decorative elements, patterns, visual accents. "
                     f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
+                    f"{alignment_instruction}"
                     f"{'Add swipe arrow indicator on right edge. ' if total_slides > 1 and st != 'cta' else ''}"
                     f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
