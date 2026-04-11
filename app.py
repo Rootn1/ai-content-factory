@@ -574,10 +574,28 @@ async def generate_copy(request: Request):
     brand_data = data.get("brand_data", {})
     pillars = data.get("pillars", [])
 
-    num_slides = 6 if entry.get("format") == "carousel" else 1
+    fmt = entry.get("format", "carousel")
+    if fmt == "mini":
+        num_slides = 2
+    elif fmt == "carousel":
+        num_slides = 6
+    else:
+        num_slides = 1
     ig_handle = brand_data.get("instagram", "@brand")
 
-    system = """Sei un copywriter esperto di social media italiano.
+    # Mini carousel special instructions
+    mini_rules = ""
+    if fmt == "mini":
+        mini_rules = """
+FORMATO MINI CAROSELLO (2 slide):
+- SLIDE 1: Immagine impattante con headline breve e provocatoria che crea curiosità.
+  Deve essere una DOMANDA, una PROVOCAZIONE o un DATO SHOCK che obbliga a swipare.
+- SLIDE 2: La risposta/soluzione/spiegazione con CTA integrata.
+  Testo più lungo (60-80 parole), con heading + body + CTA finale.
+- L'obiettivo è creare un "cliffhanger" tra le due slide.
+"""
+
+    system = f"""Sei un copywriter esperto di social media italiano.
 Scrivi copy per slide Instagram/TikTok seguendo queste regole:
 
 SLIDE 1 (Hero): headline 20-30 parole max. Usa Title Case o TUTTO MAIUSCOLO.
@@ -589,7 +607,7 @@ SLIDE 2..N-1 (Intermedie): 50-70 parole, testo educativo distribuito in blocchi.
   Heading 22-26px, grassetto su parole chiave.
 
 ULTIMA SLIDE (CTA): 20-25 parole, heading + sub + bottone CTA.
-
+{mini_rules}
 REGOLE GENERALI:
 - Scrivi come una persona intelligente che parla a un amico davanti a un caffè
 - Frasi brevi alternate a frasi più lunghe — ritmo naturale
@@ -601,6 +619,24 @@ REGOLE GENERALI:
 
 Rispondi SOLO con JSON valido, senza markdown fences."""
 
+    slide_schema = ""
+    if fmt == "mini":
+        slide_schema = """  "slides": [
+    {"index": 1, "type": "hero", "heading": "...", "body": "..."},
+    {"index": 2, "type": "cta", "heading": "...", "body": "..."}
+  ]"""
+    elif num_slides == 1:
+        slide_schema = """  "slides": [
+    {"index": 1, "type": "hero", "heading": "...", "body": "..."}
+  ]"""
+    else:
+        slide_schema = f"""  "slides": [
+    {{"index": 1, "type": "hero", "heading": "...", "body": "..."}},
+    {{"index": 2, "type": "body", "heading": "...", "body": "..."}},
+    ...
+    {{"index": {num_slides}, "type": "cta", "heading": "...", "body": "..."}}
+  ]"""
+
     prompt = f"""Genera il copy per questo post:
 
 Topic: {entry.get('topic', '')}
@@ -609,7 +645,7 @@ Categoria: {entry.get('content_category', '')}
 Obiettivo: {entry.get('objective', '')}
 Hook: {entry.get('hook', '')}
 CTA: {entry.get('cta', '')}
-Formato: {entry.get('format', 'carousel')}
+Formato: {fmt} {'(mini carosello a 2 slide — cliffhanger + risposta)' if fmt == 'mini' else ''}
 Numero slide: {num_slides}
 
 Brand:
@@ -621,12 +657,7 @@ Instagram: {ig_handle}
 
 Restituisci JSON:
 {{
-  "slides": [
-    {{"index": 1, "type": "hero", "heading": "...", "body": "..."}},
-    {{"index": 2, "type": "body", "heading": "...", "body": "..."}},
-    ...
-    {{"index": {num_slides}, "type": "cta", "heading": "...", "body": "..."}}
-  ],
+{slide_schema},
   "caption": "caption IG con hashtag",
   "reel_script": "script narrativo reel max 200 parole",
   "layout": "suggerimento layout"
@@ -706,11 +737,27 @@ async def generate_images(request: Request):
     author_title = data.get("author_title", "")
     custom_instructions = data.get("custom_instructions", "")
     total_slides = data.get("total_slides", len(slides))
+    visual_elements = data.get("visual_elements", {})
 
     palette_desc = ", ".join(palette[:5])
     mood = brand_data.get("tone", "professional")
     sector = brand_data.get("niche", "lifestyle")
     brand_name = brand_data.get("notes", "").split(",")[0][:40] if brand_data.get("notes") else ""
+
+    # Build visual elements instruction string
+    ve_parts = []
+    if visual_elements.get("doodles"):
+        ve_parts.append("Add hand-drawn style arrows, underlines, circles and doodle elements to highlight key points and create visual flow.")
+    if visual_elements.get("icons"):
+        ve_parts.append("Include thematic flat icons relevant to the content topic (e.g. lightbulb, target, chart, checkmark).")
+    if visual_elements.get("stickers"):
+        ve_parts.append("Add fun sticker-like visual elements — relevant and sometimes ironic/playful — to make the slide more engaging and shareable.")
+    if visual_elements.get("swipe_visual"):
+        ve_parts.append("Add a clear swipe indicator on the right edge (subtle chevron, gradient fade, or visual cue) to encourage swiping to next slide.")
+    if visual_elements.get("shapes"):
+        ve_parts.append("Use geometric shapes, patterns, and abstract forms as decorative background elements to fill empty space.")
+    visual_instructions = "\n".join(ve_parts)
+    hero_image_requested = visual_elements.get("hero_image", False)
 
     results = []
     for slide in slides:
@@ -769,6 +816,16 @@ async def generate_images(request: Request):
             elif ct in ["mappa_mentale", "framework"]:
                 visual_style = "Create a visual mind-map or flowchart structure with connecting lines and nodes. Make it look like an infographic. "
 
+            # Hero image overlay for slide 1
+            hero_overlay = ""
+            if hero_image_requested and slide_idx == 1:
+                hero_overlay = (
+                    "CRITICAL FOR SLIDE 1: Add a prominent, attention-grabbing visual element — "
+                    "this could be a relevant icon, emoji-style illustration, a bold graphic symbol, "
+                    "or a striking visual metaphor related to the topic. "
+                    "This hero visual should occupy ~30% of the slide and be immediately eye-catching. "
+                )
+
             prompt = (
                 f"You are a world-class Instagram content designer. "
                 f"I'm providing a reference layout image for slide {slide_idx}/{total_slides} of an Instagram carousel. "
@@ -787,24 +844,38 @@ async def generate_images(request: Request):
                 f"- Use bold typography hierarchy: heading large and impactful, body text clean and readable.\n"
                 f"- Add decorative graphic elements that support the content (icons, shapes, dividers, highlights).\n"
                 f"- The design should make people STOP scrolling and want to save/share.\n"
+                f"- FILL EMPTY SPACE: Do not leave large blank areas — use decorative elements, subtle patterns, or visual accents to fill the composition.\n"
                 f"{visual_style}"
+                f"{hero_overlay}"
                 f"{logo_section}"
                 f"{author_section}"
                 f"{arrow_section}"
+                f"{visual_instructions + chr(10) if visual_instructions else ''}"
                 f"\nIMPORTANT: Output ONE finished, ready-to-post image. No mockups, no phone frames."
                 f"{extra}"
             )
         else:
             # NO REFERENCE — generate from scratch with rich prompts
             if st == "hero":
+                hero_visual = ""
+                if hero_image_requested:
+                    hero_visual = (
+                        "Add a PROMINENT, attention-grabbing visual element — "
+                        "a relevant icon, bold graphic illustration, striking visual metaphor, "
+                        "or eye-catching image related to the topic. Should occupy ~30% of the slide. "
+                    )
                 prompt = (
                     f"Create a stunning Instagram carousel COVER slide for a {sector} brand. "
                     f"Bold, scroll-stopping design with headline: \"{heading[:80]}\" "
                     f"and subtitle: \"{body_text[:120]}\" "
                     f"Color palette: {palette_desc}. Mood: {mood}. "
                     f"Premium graphic design with decorative elements, shapes, gradients. "
+                    f"FILL ALL EMPTY SPACE with visual accents, patterns, or decorative elements. "
+                    f"{hero_visual}"
                     f"{'Include the brand logo from the reference image in top-left corner. ' if logo_b64 else ''}"
+                    f"{'Include the author photo from reference as a circular profile picture. ' if author_b64 else ''}"
                     f"{'Add a swipe arrow on the right edge. ' if total_slides > 1 else ''}"
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px, ready to post."
                     f"{extra}"
                 )
@@ -815,6 +886,8 @@ async def generate_images(request: Request):
                     f"Design as an actionable checklist with checkmark icons, numbered steps, and visual hierarchy. "
                     f"Color palette: {palette_desc}. Sector: {sector}. "
                     f"Clean, professional infographic style that people want to SAVE and SHARE. "
+                    f"FILL ALL EMPTY SPACE with visual accents. "
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
                 )
@@ -824,7 +897,9 @@ async def generate_images(request: Request):
                     f"Title: \"{heading[:80]}\". Data: \"{body_text[:200]}\" "
                     f"Include large numbers, percentage circles, bar charts, or data visualization icons. "
                     f"Make the numbers POP with oversized bold typography. "
+                    f"FILL ALL EMPTY SPACE with visual accents. "
                     f"Color palette: {palette_desc}. Sector: {sector}. "
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
                 )
@@ -834,7 +909,9 @@ async def generate_images(request: Request):
                     f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
                     f"Design as a visual mind-map with connected nodes, flowchart arrows, and structured layout. "
                     f"Color palette: {palette_desc}. Sector: {sector}. "
-                    f"Infographic style, clean and educational. Vertical 4:5 format, 1080x1350px."
+                    f"Infographic style, clean and educational. FILL ALL EMPTY SPACE. "
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
+                    f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
                 )
             elif st == "cta":
@@ -844,6 +921,8 @@ async def generate_images(request: Request):
                     f"Include a prominent CTA button, follow prompt, and engagement elements. "
                     f"{'Include the author photo from reference as a circular profile picture with name and title. ' if author_b64 else ''}"
                     f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
+                    f"FILL ALL EMPTY SPACE with decorative elements. "
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
                 )
@@ -853,8 +932,10 @@ async def generate_images(request: Request):
                     f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
                     f"Design with visual hierarchy: bold heading, clear body text, decorative elements. "
                     f"Add subtle graphics, icons, accent shapes that support the content. "
+                    f"FILL ALL EMPTY SPACE — no large blank areas. Use decorative elements, patterns, visual accents. "
                     f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
                     f"{'Add swipe arrow indicator on right edge. ' if total_slides > 1 and st != 'cta' else ''}"
+                    f"{visual_instructions + ' ' if visual_instructions else ''}"
                     f"Vertical 4:5 format, 1080x1350px."
                     f"{extra}"
                 )

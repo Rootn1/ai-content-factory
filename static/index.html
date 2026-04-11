@@ -623,6 +623,31 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
           </div>
         </div>
       </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+        <label class="form-label">Elementi Visivi (istruzioni per Gemini)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkDoodles" checked> Frecce & doodles
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkIcons" checked> Icone tematiche
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkStickers"> Sticker / visual ironici
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkSwipeVisual" checked> Indicatori di swipe
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkHeroImage" checked> Immagine hero (slide 1)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chkShapes"> Forme geometriche / pattern
+          </label>
+        </div>
+        <p class="form-hint">Questi elementi vengono inclusi nel prompt di generazione immagini Gemini</p>
+      </div>
     </div>
   </div>
 
@@ -1325,6 +1350,7 @@ function renderCalendar() {
       <td><span class="badge badge-${cat}">${e.content_type}</span></td>
       <td><select class="format-select" onchange="state.calendar[${i}].format=this.value">
         <option value="carousel" ${e.format==='carousel'?'selected':''}>Carosello</option>
+        <option value="mini" ${e.format==='mini'?'selected':''}>Mini carosello (2 slide)</option>
         <option value="single" ${e.format==='single'?'selected':''}>Post singolo</option>
       </select></td>`;
     body.appendChild(tr);
@@ -1411,6 +1437,7 @@ async function generateCopy() {
       entry: post,
       brand_data: state.brand,
       pillars: state.pillars,
+      visual_elements: getVisualElements(),
     });
     state.currentCopy = result;
     renderCopy(result);
@@ -1656,6 +1683,16 @@ function adjustSize(type, delta) {
     document.getElementById('subSizeVal').textContent = state.design.subSize + '%';
   }
   renderPreview();
+}
+function getVisualElements() {
+  return {
+    doodles: document.getElementById('chkDoodles')?.checked || false,
+    icons: document.getElementById('chkIcons')?.checked || false,
+    stickers: document.getElementById('chkStickers')?.checked || false,
+    swipe_visual: document.getElementById('chkSwipeVisual')?.checked || false,
+    hero_image: document.getElementById('chkHeroImage')?.checked || false,
+    shapes: document.getElementById('chkShapes')?.checked || false,
+  };
 }
 function setAlignHero(align, btn) {
   state.design.textAlignHero = align;
@@ -2059,6 +2096,7 @@ async function regenSlide(idx) {
       author_title: authorTitle,
       custom_instructions: customInstructions,
       total_slides: slides.length,
+      visual_elements: getVisualElements(),
     });
     if (result.slides_with_images?.[0]?.img_b64) {
       slides[idx].img_b64 = result.slides_with_images[0].img_b64;
@@ -2128,6 +2166,7 @@ async function generateImages() {
           author_title: authorTitle,
           custom_instructions: customInstructions,
           total_slides: slides.length,
+          visual_elements: getVisualElements(),
         });
         if (result.slides_with_images?.[0]?.img_b64) {
           slides[i].img_b64 = result.slides_with_images[0].img_b64;
@@ -2193,6 +2232,10 @@ function getSlideFullHTML(slide, idx, includeImages) {
 
 async function exportZip() {
   if (!state.slug) { toast('Nessun progetto salvato', 'error'); return; }
+  const btn = document.getElementById('btnExportZip');
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></div> Preparazione ZIP...';
   try {
     const r = await fetch('/api/export-zip', {
       method: 'POST',
@@ -2206,6 +2249,10 @@ async function exportZip() {
     a.click();
     toast('ZIP scaricato!', 'success');
   } catch(e) { toast('Errore export: ' + e.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = origText;
+  }
 }
 
 // =================================================================
