@@ -509,21 +509,47 @@ async def generate_calendar(request: Request):
     posts_per_day = frequency.get("posts_per_day", 1)
     selected_days = frequency.get("selected_days", [1, 2, 3, 4, 5])
 
-    pillar_names = [p.get("name", "") for p in pillars]
+    # Build pillar details with angles for richer context
+    pillar_details = []
+    for p in pillars:
+        name = p.get("name", "")
+        subtitle = p.get("subtitle", "")
+        angles = p.get("angles", [])
+        angles_str = ", ".join(angles[:8]) if angles else ""
+        pillar_details.append(f"- {name}: {subtitle}. Angoli: {angles_str}")
+    pillar_block = "\n".join(pillar_details) if pillar_details else "Nessun pillar definito"
+
+    niche = brand_data.get("niche", "")
+    target = brand_data.get("target", "")
+    tone = brand_data.get("tone", "")
+    usp = brand_data.get("usp", "")
 
     system = """Sei un content strategist esperto di social media marketing italiano.
 Genera un calendario editoriale dettagliato.
+Ogni topic deve essere SPECIFICO per la nicchia e il target indicati — MAI generico.
 Scrivi SEMPRE in italiano.
 Rispondi SOLO con JSON valido, senza markdown fences."""
 
     prompt = f"""Genera un calendario editoriale di {duration} giorni.
 
-Pillar disponibili: {json.dumps(pillar_names, ensure_ascii=False)}
+BRAND:
+Nicchia: {niche}
+Target: {target}
+USP: {usp}
+Tono: {tone}
+
+PILLAR EDITORIALI (usa questi come base per i topic):
+{pillar_block}
+
+CONFIGURAZIONE:
 Frequenza: {days_per_week} giorni/settimana, {posts_per_day} post/giorno
 Giorni attivi (0=dom, 1=lun...): {selected_days}
 Mix contenuti: {mix_preset}
 Note extra: {extra_notes}
 Data inizio: {datetime.now().strftime('%Y-%m-%d')}
+
+IMPORTANTE: Ogni topic deve essere SPECIFICO per "{niche}" e rivolto a "{target}".
+Non generare topic generici tipo "come gestire il tempo" — scrivi topic concreti legati al settore.
 
 CATEGORIE CONTENUTI da usare:
 - educativo: tutorial_how_to, errori_comuni, checklist, did_you_know, statistiche_shock, step_by_step
@@ -658,6 +684,9 @@ USP: {brand_data.get('usp', '')}
 Tono: {brand_data.get('tone', '')}
 Target: {brand_data.get('target', '')}
 Instagram: {ig_handle}
+
+IMPORTANTE: Il contenuto deve essere SPECIFICO per la nicchia "{brand_data.get('niche', '')}" e rivolto al target "{brand_data.get('target', '')}".
+Non scrivere mai contenuto generico — ogni frase deve parlare al mondo del cliente.
 
 Restituisci JSON:
 {{
