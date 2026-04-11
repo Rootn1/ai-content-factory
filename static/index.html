@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&family=Montserrat:wght@400;600;700&family=DM+Serif+Display&family=Raleway:wght@400;600;700&family=Lora:wght@400;700&family=Source+Sans+3:wght@400;600&family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Roboto:wght@400;500&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0a0a0a;--surface:#141414;--border:#222;--border-light:#333;--accent:#FF4500;--accent-hover:#e63e00;--text:#e0e0e0;--text-dim:#888;--text-bright:#fff;--radius:8px;--radius-sm:6px}
@@ -2356,22 +2357,42 @@ function getSlideFullHTML(slide, idx, includeImages) {
 }
 
 async function exportZip() {
-  if (!state.slug) { toast('Nessun progetto salvato', 'error'); return; }
+  if (!state.currentCopy?.slides?.length) { toast('Nessuna slide da esportare', 'error'); return; }
   const btn = document.getElementById('btnExportZip');
   const origText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></div> Preparazione ZIP...';
   try {
-    const r = await fetch('/api/export-zip', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({slug: state.slug}),
-    });
-    const blob = await r.blob();
+    const zip = new JSZip();
+    const slides = state.currentCopy.slides;
+    const folder = zip.folder('slides');
+
+    for (let i = 0; i < slides.length; i++) {
+      let imgData = slides[i].img_b64;
+      // Fallback: capture HTML preview if no Gemini image
+      if (!imgData) {
+        try { imgData = await captureSlideAsPng(slides[i], i); } catch(e) {}
+      }
+      if (imgData) {
+        folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, imgData, {base64: true});
+      }
+    }
+
+    // Add caption
+    const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
+    if (caption) zip.file('caption.txt', caption);
+
+    // Add full copy block
+    const fullCopy = slides.map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
+    if (fullCopy) zip.file('copy.txt', fullCopy);
+
+    // Generate and download
+    const blob = await zip.generateAsync({type: 'blob'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = state.slug + '-export.zip';
+    a.download = (state.slug || 'content') + '-export.zip';
     a.click();
+    URL.revokeObjectURL(a.href);
     toast('ZIP scaricato!', 'success');
   } catch(e) { toast('Errore export: ' + e.message, 'error'); }
   finally {
