@@ -632,6 +632,8 @@ SLIDE 1 (Hero): headline 20-30 parole max. Usa Title Case o TUTTO MAIUSCOLO.
   Formule: [Oggetto] + [Aggettivo Inaspettato]? | [N] [Soggetto] Che [Azione Sorprendente] |
   Come [Risultato] Senza [Barriera] | Il [Meccanismo] Che [ICP] Non Conosce
   MAI: "Scopri il segreto...", "Ti sei mai chiesto...", "X. Tu fai Y."
+  ENFASI: Usa *asterischi* attorno a 2-4 parole chiave del heading per evidenziarle con il colore accento.
+  Es: "Stai lavorando tanto *e guadagnando poco?*" oppure "Il *metodo* che nessuno ti spiega"
 
 SLIDE 2..N-1 (Intermedie): 50-70 parole, testo educativo distribuito in blocchi.
   Heading 22-26px, grassetto su parole chiave.
@@ -809,198 +811,78 @@ async def generate_images(request: Request):
         v_align = design_settings.get("vAlign", "center")
         layout_style = design_settings.get("layout", "centered")
 
-        # Build reference images list
+        # Build reference images list — only the HTML-rendered PNG
+        # (logo, author photo, text, colors are already baked into the reference PNG)
         ref_images = []
         if ref_b64:
             ref_images.append({"data": ref_b64, "mime": "image/png"})
-        if logo_b64:
-            # Strip data URL prefix if present
-            logo_data = logo_b64.split(",")[1] if "," in logo_b64 else logo_b64
-            ref_images.append({"data": logo_data, "mime": "image/png"})
-        if author_b64:
-            author_data = author_b64.split(",")[1] if "," in author_b64 else author_b64
-            ref_images.append({"data": author_data, "mime": "image/png"})
 
         # Custom instructions suffix
         extra = f"\n\nAdditional creative direction: {custom_instructions}" if custom_instructions else ""
 
-        # --- Build rich prompt based on slide type and content category ---
+        # Content-type specific graphic hints
+        visual_style = ""
+        if ct in ["checklist", "step_by_step"]:
+            visual_style = "Add checkmark icons, numbered circles, and visual cues near the list items. "
+        elif ct in ["tutorial_how_to", "errori_comuni"]:
+            visual_style = "Add icon-based visual cues (warning icons, lightbulbs, arrows) as decorative accents. "
+        elif ct in ["did_you_know", "statistiche_shock"]:
+            visual_style = "Add data visualization decorations: percentage circles, bar chart accents, infographic icons. "
+        elif ct in ["quote_motivazionale", "lezioni_di_vita"]:
+            visual_style = 'Add elegant decorative quotation marks and editorial flourishes. '
+        elif ct in ["mappa_mentale", "framework"]:
+            visual_style = "Add connecting lines, nodes, and flowchart-like decorative elements. "
+
+        # Hero image overlay for slide 1
+        hero_overlay = ""
+        if hero_image_requested and slide_idx == 1:
+            hero_overlay = (
+                "Add a prominent, attention-grabbing graphic element — "
+                "a relevant icon, bold illustration, or visual metaphor related to the topic. "
+                "This hero visual should occupy ~25-30% of the slide. "
+            )
+
+        # --- BUILD PROMPT ---
         if ref_b64:
-            # REFERENCE-BASED: enhance the HTML preview
-            author_section = ""
-            if author_b64 and author_name:
-                author_section = (
-                    f"Include the author's profile photo (provided as reference image) in a circular frame "
-                    f"at the bottom-left with the name \"{author_name}\" and title \"{author_title}\" next to it. "
-                )
-            logo_section = ""
-            if logo_b64:
-                logo_section = "Place the brand logo (provided as reference image) in the top-left corner, small and elegant. "
-
-            # Swipe arrow for carousel slides (not first, not last CTA)
-            arrow_section = ""
-            if total_slides > 1 and st != 'cta' and slide_idx > 1:
-                arrow_section = "Add a subtle swipe-right arrow indicator on the right edge to invite swiping. "
-            elif total_slides > 1 and slide_idx == 1:
-                arrow_section = "Add a subtle swipe-right arrow indicator on the right edge to invite swiping to the next slide. "
-
-            # Content-type specific visual enhancements
-            visual_style = ""
-            if ct in ["checklist", "step_by_step"]:
-                visual_style = "Use checkmark icons (✓) or numbered circles next to each point. Make it look like an actionable checklist. "
-            elif ct in ["tutorial_how_to", "errori_comuni"]:
-                visual_style = "Use icon-based visual cues (warning icons, lightbulbs, arrows) to make the educational content scannable. "
-            elif ct in ["did_you_know", "statistiche_shock"]:
-                visual_style = "Incorporate bold data visualization elements: large numbers, percentage circles, bar charts, or infographic icons. Make the data POP visually. "
-            elif ct in ["quote_motivazionale", "lezioni_di_vita"]:
-                visual_style = 'Add elegant quotation marks ("") as decorative elements. Use a premium editorial feel. '
-            elif ct in ["mappa_mentale", "framework"]:
-                visual_style = "Create a visual mind-map or flowchart structure with connecting lines and nodes. Make it look like an infographic. "
-
-            # Hero image overlay for slide 1
-            hero_overlay = ""
-            if hero_image_requested and slide_idx == 1:
-                hero_overlay = (
-                    "CRITICAL FOR SLIDE 1: Add a prominent, attention-grabbing visual element — "
-                    "this could be a relevant icon, emoji-style illustration, a bold graphic symbol, "
-                    "or a striking visual metaphor related to the topic. "
-                    "This hero visual should occupy ~30% of the slide and be immediately eye-catching. "
-                )
-
+            # PRIMARY PATH: enhance the HTML reference PNG with graphics only
             prompt = (
-                f"You are a world-class Instagram content designer. "
-                f"I'm providing a reference layout image for slide {slide_idx}/{total_slides} of an Instagram carousel. "
-                f"RECREATE this slide as a stunning, scroll-stopping, professionally designed Instagram image. "
-                f"\n\nCRITICAL — FOLLOW THE REFERENCE LAYOUT EXACTLY:\n"
-                f"- Match the TEXT ALIGNMENT from the reference image precisely (left-aligned, center-aligned, or right-aligned).\n"
-                f"- Match the VERTICAL POSITION of text elements (top, center, bottom of slide).\n"
-                f"- Match the SPACING and POSITIONING between heading and body text.\n"
-                f"- If text is left-aligned in the reference, your output MUST be left-aligned. Same for center or right.\n"
-                f"- The reference image defines the layout structure — your job is to make it visually stunning while preserving that exact layout.\n"
-                f"\nEXPLICIT ALIGNMENT SETTINGS (MUST FOLLOW):\n"
-                f"- Heading text alignment: {head_align.upper()}\n"
-                f"- Body text alignment: {body_align.upper()}\n"
-                f"- Vertical text position: {v_align.upper()} of slide\n"
-                f"\nDESIGN REQUIREMENTS:\n"
-                f"- Color palette: {palette_desc}\n"
-                f"- Brand sector: {sector}\n"
-                f"- Mood/tone: {mood}\n"
-                f"- Format: vertical 4:5 (1080x1350px)\n"
-                f"\nTEXT CONTENT (must be EXACTLY this, in Italian):\n"
-                f"- Heading: \"{heading[:100]}\"\n"
-                f"- Body: \"{body_text[:200]}\"\n"
-                f"\nVISUAL DESIGN DIRECTION:\n"
-                f"- Create a PREMIUM, ENGAGING social media graphic — NOT a plain text-on-background slide.\n"
-                f"- Add visual depth: subtle gradients, geometric shapes, decorative lines, accent elements.\n"
-                f"- Use bold typography hierarchy: heading large and impactful, body text clean and readable.\n"
-                f"- Add decorative graphic elements that support the content (icons, shapes, dividers, highlights).\n"
-                f"- The design should make people STOP scrolling and want to save/share.\n"
-                f"- FILL EMPTY SPACE: Do not leave large blank areas — use decorative elements, subtle patterns, or visual accents to fill the composition.\n"
+                f"I'm providing a FINISHED Instagram slide image (slide {slide_idx}/{total_slides}). "
+                f"The text, layout, typography, colors and positioning are FINAL and CORRECT. "
+                f"\n\nYOUR TASK: Add ONLY decorative graphic elements ON TOP of this image to make it visually stunning. "
+                f"\n\nADD these visual enhancements:\n"
+                f"- Subtle gradients, geometric shapes, decorative lines, accent elements\n"
+                f"- Background textures, patterns, or abstract visual accents\n"
+                f"- Decorative graphic elements that support the content (icons, shapes, dividers, highlights)\n"
+                f"- Fill empty space with visual interest — no large blank areas\n"
                 f"{visual_style}"
                 f"{hero_overlay}"
-                f"{logo_section}"
-                f"{author_section}"
-                f"{arrow_section}"
                 f"{visual_instructions + chr(10) if visual_instructions else ''}"
-                f"\nIMPORTANT: Output ONE finished, ready-to-post image. No mockups, no phone frames."
+                f"\nCRITICAL RULES — MUST FOLLOW:\n"
+                f"- **NO TEXT**: Do NOT add, modify, move, rewrite, or generate ANY text or lettering.\n"
+                f"- **NO WATERMARK**: Do NOT add any watermark, signature, or branding text.\n"
+                f"- **NO LABELS**: Do NOT add captions, titles, subtitles, or any written content.\n"
+                f"- The text already in the image is FINAL — preserve it EXACTLY as-is.\n"
+                f"- Keep the same color palette: {palette_desc}\n"
+                f"- Keep the same layout structure and text positions.\n"
+                f"- Sector: {sector}. Mood: {mood}.\n"
+                f"- Format: vertical 4:5 (1080x1350px)\n"
+                f"\nOutput ONE enhanced image. No mockups, no phone frames."
                 f"{extra}"
             )
         else:
-            # NO REFERENCE — generate from scratch with rich prompts
-            alignment_instruction = (
-                f"TEXT ALIGNMENT: Heading must be {head_align.upper()}-aligned. "
-                f"Body text must be {body_align.upper()}-aligned. "
-                f"Text positioned at the {v_align.upper()} of the slide. "
+            # FALLBACK: no reference image available — generate from scratch
+            prompt = (
+                f"Create a decorative Instagram slide BACKGROUND for a {sector} brand. "
+                f"Color palette: {palette_desc}. Mood: {mood}. "
+                f"Add visual elements: gradients, geometric shapes, patterns, textures, decorative accents. "
+                f"Leave clear space for text overlay — do NOT include any text. "
+                f"{visual_style}"
+                f"{hero_overlay}"
+                f"{visual_instructions + ' ' if visual_instructions else ''}"
+                f"\nCRITICAL: NO TEXT. NO WATERMARK. NO LABELS. NO LETTERING of any kind. "
+                f"Output a purely visual/graphic design. Vertical 4:5 format, 1080x1350px."
+                f"{extra}"
             )
-            if st == "hero":
-                hero_visual = ""
-                if hero_image_requested:
-                    hero_visual = (
-                        "Add a PROMINENT, attention-grabbing visual element — "
-                        "a relevant icon, bold graphic illustration, striking visual metaphor, "
-                        "or eye-catching image related to the topic. Should occupy ~30% of the slide. "
-                    )
-                prompt = (
-                    f"Create a stunning Instagram carousel COVER slide for a {sector} brand. "
-                    f"Bold, scroll-stopping design with headline: \"{heading[:80]}\" "
-                    f"and subtitle: \"{body_text[:120]}\" "
-                    f"Color palette: {palette_desc}. Mood: {mood}. "
-                    f"Premium graphic design with decorative elements, shapes, gradients. "
-                    f"FILL ALL EMPTY SPACE with visual accents, patterns, or decorative elements. "
-                    f"{alignment_instruction}"
-                    f"{hero_visual}"
-                    f"{'Include the brand logo from the reference image in top-left corner. ' if logo_b64 else ''}"
-                    f"{'Include the author photo from reference as a circular profile picture. ' if author_b64 else ''}"
-                    f"{'Add a swipe arrow on the right edge. ' if total_slides > 1 else ''}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px, ready to post."
-                    f"{extra}"
-                )
-            elif ct in ["checklist", "step_by_step"]:
-                prompt = (
-                    f"Create an Instagram CHECKLIST/INFOGRAPHIC slide. "
-                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
-                    f"Design as an actionable checklist with checkmark icons, numbered steps, and visual hierarchy. "
-                    f"Color palette: {palette_desc}. Sector: {sector}. "
-                    f"Clean, professional infographic style that people want to SAVE and SHARE. "
-                    f"FILL ALL EMPTY SPACE with visual accents. "
-                    f"{alignment_instruction}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px."
-                    f"{extra}"
-                )
-            elif ct in ["did_you_know", "statistiche_shock"]:
-                prompt = (
-                    f"Create an Instagram DATA/INFOGRAPHIC slide with bold statistics. "
-                    f"Title: \"{heading[:80]}\". Data: \"{body_text[:200]}\" "
-                    f"Include large numbers, percentage circles, bar charts, or data visualization icons. "
-                    f"Make the numbers POP with oversized bold typography. "
-                    f"FILL ALL EMPTY SPACE with visual accents. "
-                    f"Color palette: {palette_desc}. Sector: {sector}. "
-                    f"{alignment_instruction}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px."
-                    f"{extra}"
-                )
-            elif ct in ["mappa_mentale", "framework"]:
-                prompt = (
-                    f"Create an Instagram MIND MAP / FRAMEWORK slide. "
-                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
-                    f"Design as a visual mind-map with connected nodes, flowchart arrows, and structured layout. "
-                    f"Color palette: {palette_desc}. Sector: {sector}. "
-                    f"Infographic style, clean and educational. FILL ALL EMPTY SPACE. "
-                    f"{alignment_instruction}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px."
-                    f"{extra}"
-                )
-            elif st == "cta":
-                prompt = (
-                    f"Create a CALL-TO-ACTION Instagram slide. "
-                    f"Title: \"{heading[:80]}\". Message: \"{body_text[:150]}\" "
-                    f"Include a prominent CTA button, follow prompt, and engagement elements. "
-                    f"{'Include the author photo from reference as a circular profile picture with name and title. ' if author_b64 else ''}"
-                    f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
-                    f"FILL ALL EMPTY SPACE with decorative elements. "
-                    f"{alignment_instruction}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px."
-                    f"{extra}"
-                )
-            else:
-                prompt = (
-                    f"Create a professional Instagram carousel BODY slide. "
-                    f"Title: \"{heading[:80]}\". Content: \"{body_text[:200]}\" "
-                    f"Design with visual hierarchy: bold heading, clear body text, decorative elements. "
-                    f"Add subtle graphics, icons, accent shapes that support the content. "
-                    f"FILL ALL EMPTY SPACE — no large blank areas. Use decorative elements, patterns, visual accents. "
-                    f"Color palette: {palette_desc}. Mood: {mood}. Sector: {sector}. "
-                    f"{alignment_instruction}"
-                    f"{'Add swipe arrow indicator on right edge. ' if total_slides > 1 and st != 'cta' else ''}"
-                    f"{visual_instructions + ' ' if visual_instructions else ''}"
-                    f"Vertical 4:5 format, 1080x1350px."
-                    f"{extra}"
-                )
 
         img_b64 = await generate_gemini_image(prompt, images=ref_images)
         results.append({"index": slide.get("index", 0), "img_b64": img_b64, "prompt": prompt})
