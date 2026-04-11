@@ -155,9 +155,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
 /* Preview grid */
 .preview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.preview-thumb{aspect-ratio:4/5;background:#1a1a1a;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px;font-size:11px;text-align:center;transition:all .2s}
+.preview-thumb{background:#1a1a1a;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0;font-size:11px;text-align:center;transition:all .2s}
 .preview-thumb:hover{border-color:var(--accent)}
-.preview-thumb .thumb-label{position:absolute;top:6px;left:6px;font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px}
+.preview-thumb .thumb-label{position:absolute;top:6px;left:6px;font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px;z-index:10}
 
 /* Lightbox */
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;justify-content:center;align-items:center}
@@ -1854,9 +1854,12 @@ function renderPreview() {
   state.currentCopy.slides.forEach((slide, i) => {
     const div = document.createElement('div');
     div.className = 'preview-thumb';
+    // Set aspect ratio based on current selection
+    const arMap = {'1:1':'1/1','4:5':'4/5','9:16':'9/16','16:9':'16/9'};
+    div.style.aspectRatio = arMap[state.aspect] || '4/5';
     const contrast = checkSlideContrast(slide, i);
-    const warn = (!contrast.textOk || !contrast.dimOk) ? `<span title="Contrasto basso: heading ${contrast.crText}:1, body ${contrast.crDim}:1" style="position:absolute;top:6px;right:6px;font-size:14px;z-index:3;filter:drop-shadow(0 0 2px rgba(0,0,0,.8))">&#9888;</span>` : '';
-    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + getSlideHTML(slide, i).replace(/width:420px/g, 'width:100%').replace(/height:\d+px/g, 'height:100%');
+    const warn = (!contrast.textOk || !contrast.dimOk) ? `<span title="Contrasto basso: heading ${contrast.crText}:1, body ${contrast.crDim}:1" style="position:absolute;top:6px;right:6px;font-size:14px;z-index:10;filter:drop-shadow(0 0 2px rgba(0,0,0,.8))">&#9888;</span>` : '';
+    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + getSlideHTML(slide, i).replace(/width:\d+px/g, 'width:100%').replace(/height:\d+px/g, 'height:100%');
     div.onclick = () => openLightbox(i);
     grid.appendChild(div);
   });
@@ -2102,7 +2105,7 @@ async function generateImages() {
     }
 
     // Step 2: Send to Gemini with reference + logo + author + instructions
-    document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — generazione Gemini...`;
+    document.getElementById('imgProgress').textContent = `Slide ${i+1}/${slides.length} — Generazione...`;
     fill.style.width = ((i * 2 + 1) / (slides.length * 2) * 100) + '%';
 
     let success = false;
