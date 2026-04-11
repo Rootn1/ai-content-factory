@@ -1029,7 +1029,7 @@ function updateAuthorBioPreview() {
     const el = document.getElementById(id);
     if (!el) return;
     if (state.authorB64) {
-      el.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover">`;
+      el.innerHTML = `<img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover;object-position:center 20%">`;
       el.style.border = '2px solid var(--accent)';
     } else {
       el.innerHTML = '<span>&#128100;</span>';
@@ -1878,7 +1878,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const showAuthor = document.getElementById('chkAuthor')?.checked && state.authorB64;
   const aName = document.getElementById('fAuthorName')?.value || state.brand.instagram || '';
   const aTitle = document.getElementById('fAuthorTitle')?.value || '';
-  const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;right:16px;z-index:2;display:flex;align-items:center;gap:10px;background:${bg}cc;padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px)"><img src="${state.authorB64}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid ${accent};flex-shrink:0"><div><div style="font-family:'${fb}',sans-serif;font-size:11px;font-weight:600;color:${textColor}">${escHtml(aName)}</div>${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:9px;color:${dim};margin-top:1px">${escHtml(aTitle)}</div>` : ''}</div></div>` : '';
+  const authorHtml = showAuthor ? `<div style="position:absolute;bottom:16px;left:16px;right:16px;z-index:2;display:flex;align-items:center;gap:10px;background:${bg}cc;padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px)"><img src="${state.authorB64}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:center 20%;border:2px solid ${accent};flex-shrink:0"><div><div style="font-family:'${fb}',sans-serif;font-size:11px;font-weight:600;color:${textColor}">${escHtml(aName)}</div>${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:9px;color:${dim};margin-top:1px">${escHtml(aTitle)}</div>` : ''}</div></div>` : '';
 
   // Swipe arrow for carousel (not on last slide)
   const totalSlides = state.currentCopy?.slides?.length || 1;
