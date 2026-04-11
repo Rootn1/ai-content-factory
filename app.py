@@ -638,7 +638,9 @@ SLIDE 1 (Hero): headline 20-30 parole max. Usa Title Case o TUTTO MAIUSCOLO.
 SLIDE 2..N-1 (Intermedie): 50-70 parole, testo educativo distribuito in blocchi.
   Heading 22-26px, grassetto su parole chiave.
 
-ULTIMA SLIDE (CTA): 20-25 parole, heading + sub + bottone CTA.
+ULTIMA SLIDE (CTA): 20-25 parole. DEVE invitare a una di queste azioni: seguire il profilo, scrivere in DM, cliccare link in bio, salvare il post, condividere il post.
+  La CTA deve essere SPECIFICA e diretta. Es: "Seguimi per altri consigli su [nicchia]", "Scrivi NUMERI in DM per la pre-analisi gratuita", "Salva questo post per rileggere quando serve".
+  MAI "Scopri di più" generico — sempre azione concreta legata al profilo Instagram.
 {mini_rules}
 REGOLE GENERALI:
 - Scrivi come una persona intelligente che parla a un amico davanti a un caffè
