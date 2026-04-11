@@ -162,37 +162,61 @@ async def fetch_url(url: str) -> str:
 
 
 async def fetch_url_with_images(url: str) -> dict:
-    """Fetch URL content via Jina and also extract image URLs + screenshot."""
+    """Fetch URL content via Jina and also extract image URLs + screenshot.
+
+    Runs markdown fetch and screenshot fetch in parallel via asyncio.gather.
+    """
+    import asyncio
+
     content = ""
     images = []
-    screenshot_url = ""
+    screenshot_b64 = ""
+
+    async def _fetch_markdown(client):
+        r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown"})
+        if not r.is_success:
+            return "", []
+        text = r.text[:15000]
+        imgs = []
+        img_pattern = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
+        for m in img_pattern.finditer(r.text):
+            alt, img_url = m.group(1), m.group(2)
+            if img_url and not img_url.startswith('data:'):
+                imgs.append({"url": img_url, "alt": alt})
+        src_pattern = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
+        for m in src_pattern.finditer(r.text):
+            img_url = m.group(1)
+            if img_url and not img_url.startswith('data:') and not any(i['url'] == img_url for i in imgs):
+                imgs.append({"url": img_url, "alt": ""})
+        return text, imgs
+
+    async def _fetch_screenshot(client):
+        """Fetch screenshot URL from Jina, then download and base64-encode it."""
+        rs = await client.get(f"https://r.jina.ai/{url}", headers={"x-respond-with": "screenshot"})
+        if not rs.is_success:
+            return ""
+        scr_url = rs.text.strip()
+        if not scr_url:
+            return ""
+        # Download the actual screenshot image
+        try:
+            r = await client.get(scr_url)
+            if r.is_success and r.headers.get("content-type", "").startswith("image"):
+                return base64.b64encode(r.content).decode()
+        except Exception:
+            pass
+        return ""
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            # Fetch markdown content
-            r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown"})
-            if r.is_success:
-                content = r.text[:15000]
-                # Extract image URLs from markdown: ![alt](url)
-                import re as _re
-                img_pattern = _re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
-                for match in img_pattern.finditer(r.text):
-                    alt = match.group(1)
-                    img_url = match.group(2)
-                    if img_url and not img_url.startswith('data:'):
-                        images.append({"url": img_url, "alt": alt})
-                # Also extract raw image URLs from HTML-style img tags in markdown
-                src_pattern = _re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
-                for match in src_pattern.finditer(r.text):
-                    img_url = match.group(1)
-                    if img_url and not img_url.startswith('data:') and not any(i['url'] == img_url for i in images):
-                        images.append({"url": img_url, "alt": ""})
-            # Fetch screenshot URL via Jina
-            rs = await client.get(f"https://r.jina.ai/{url}", headers={"x-respond-with": "screenshot"})
-            if rs.is_success:
-                screenshot_url = rs.text.strip()
+            (content, images), screenshot_b64 = await asyncio.gather(
+                _fetch_markdown(client),
+                _fetch_screenshot(client),
+            )
     except Exception:
         pass
-    return {"content": content, "images": images[:20], "screenshot_url": screenshot_url}
+
+    return {"content": content, "images": images[:20], "screenshot_b64": screenshot_b64}
 
 
 # ---------------------------------------------------------------------------
@@ -215,24 +239,13 @@ async def fetch_url_endpoint(request: Request):
     if not url:
         raise HTTPException(400, "URL richiesta")
 
-    # Fetch content + images + screenshot via Jina
+    # Fetch content + images + screenshot via Jina (parallel)
     fetched = await fetch_url_with_images(url)
     content = fetched["content"]
     site_images = fetched["images"]
-    screenshot_url = fetched.get("screenshot_url", "")
+    screenshot_b64 = fetched.get("screenshot_b64", "")
     if not content:
         raise HTTPException(400, "Impossibile leggere il contenuto della URL")
-
-    # Try to download screenshot for visual palette extraction
-    screenshot_b64 = ""
-    if screenshot_url:
-        try:
-            async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.get(screenshot_url)
-                if r.is_success and r.headers.get("content-type", "").startswith("image"):
-                    screenshot_b64 = base64.b64encode(r.content).decode()
-        except Exception:
-            pass
 
     system = """Sei un esperto di brand strategy. Analizza il contenuto di questa pagina web e estrai tutte le informazioni utili per un brand brief.
 Rispondi SOLO con JSON valido, senza markdown fences.
@@ -275,10 +288,9 @@ IMPORTANTE per i colori:
     except json.JSONDecodeError:
         parsed = {"raw": result}
 
-    # Attach extracted images and screenshot
+    # Attach extracted images
     parsed["site_images"] = site_images
-    if screenshot_url:
-        parsed["screenshot_url"] = screenshot_url
+    parsed["has_screenshot"] = bool(screenshot_b64)
     return parsed
 
 
