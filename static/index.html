@@ -90,7 +90,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 .pillar-card.open .pillar-toggle{transform:rotate(180deg)}
 .pillar-body{display:none;padding:0 16px 14px;border-top:1px solid var(--border)}
 .pillar-card.open .pillar-body{display:block}
-.angle-item{padding:6px 0;font-size:13px;color:var(--text);border-bottom:1px solid rgba(255,255,255,.03)}
+.angle-item{padding:0;font-size:13px;color:var(--text);border-bottom:1px solid rgba(255,255,255,.03)}
+.pillar-name[contenteditable]:focus,.pillar-subtitle[contenteditable]:focus{outline:none;border-bottom:1px solid var(--accent)}
+.pillar-name[contenteditable],.pillar-subtitle[contenteditable]{outline:none;border-bottom:1px solid transparent;transition:border-color .15s}
 
 /* Calendar table */
 .cal-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -1336,18 +1338,109 @@ function renderPillars() {
     const card = document.createElement('div');
     card.className = 'pillar-card';
     card.innerHTML = `
-      <div class="pillar-header" onclick="this.parentElement.classList.toggle('open')">
-        <div class="pillar-dot" style="background:${p.color || '#FF4500'}"></div>
-        <span class="pillar-name">${p.name}</span>
-        <span class="pillar-subtitle">${p.subtitle || ''}</span>
-        <span class="pillar-count">${(p.angles||[]).length} angles</span>
+      <div class="pillar-header" onclick="togglePillarCard(this)">
+        <input type="color" value="${p.color || '#FF4500'}" style="width:16px;height:16px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;flex-shrink:0" onclick="event.stopPropagation()" oninput="updatePillar(${i},'color',this.value);this.previousElementSibling&&(this.previousElementSibling.style.background=this.value)">
+        <div class="pillar-dot" style="background:${p.color || '#FF4500'};display:none"></div>
+        <span class="pillar-name" contenteditable="true" spellcheck="false" onclick="event.stopPropagation()" onblur="updatePillar(${i},'name',this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${escHtml(p.name)}</span>
+        <span class="pillar-subtitle" contenteditable="true" spellcheck="false" onclick="event.stopPropagation()" onblur="updatePillar(${i},'subtitle',this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" style="flex:1;min-width:0" placeholder="Sottotitolo...">${escHtml(p.subtitle || '')}</span>
+        <span class="pillar-count">${(p.angles||[]).length} angoli</span>
+        <button onclick="event.stopPropagation();deletePillar(${i})" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:0 2px;line-height:1;opacity:.6" title="Elimina pillar">&times;</button>
         <span class="pillar-toggle">&#9660;</span>
       </div>
       <div class="pillar-body">
-        ${(p.angles||[]).map(a => `<div class="angle-item">${a}</div>`).join('')}
+        <div id="angles-${i}" style="margin-bottom:10px">
+          ${(p.angles||[]).map((a, ai) => `
+            <div class="angle-item" style="display:flex;align-items:center;gap:6px;padding:5px 0">
+              <span style="color:var(--accent);font-size:10px;flex-shrink:0">▸</span>
+              <span contenteditable="true" spellcheck="false" style="flex:1;font-size:13px;color:var(--text);outline:none;border-bottom:1px solid transparent;transition:border-color .15s" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='transparent';updateAngle(${i},${ai},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${escHtml(a)}</span>
+              <button onclick="deleteAngle(${i},${ai})" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;padding:0;line-height:1;opacity:0;transition:opacity .15s" class="angle-del-btn">&times;</button>
+            </div>`).join('')}
+        </div>
+        <button onclick="addAngle(${i})" style="background:none;border:1px dashed var(--border);color:var(--text-dim);font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer;width:100%;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">+ Aggiungi angolo</button>
       </div>`;
     container.appendChild(card);
   });
+
+  // Add "new pillar" button at the bottom
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-secondary';
+  addBtn.style.cssText = 'width:100%;margin-top:4px;border-style:dashed;font-size:13px';
+  addBtn.innerHTML = '+ Nuovo pillar';
+  addBtn.onclick = addPillar;
+  container.appendChild(addBtn);
+
+  // Show angle delete buttons on hover
+  container.querySelectorAll('.angle-item').forEach(row => {
+    const delBtn = row.querySelector('.angle-del-btn');
+    if (delBtn) {
+      row.addEventListener('mouseenter', () => delBtn.style.opacity = '1');
+      row.addEventListener('mouseleave', () => delBtn.style.opacity = '0');
+    }
+  });
+}
+
+function togglePillarCard(header) {
+  header.parentElement.classList.toggle('open');
+}
+
+function updatePillar(idx, field, val) {
+  if (!state.pillars[idx]) return;
+  if (field === 'color') {
+    state.pillars[idx].color = val;
+    // Update the dot color
+    const card = document.getElementById('pillarsList').children[idx];
+    if (card) card.querySelector('.pillar-dot').style.background = val;
+  } else {
+    state.pillars[idx][field] = val;
+  }
+}
+
+function deletePillar(idx) {
+  state.pillars.splice(idx, 1);
+  renderPillars();
+  toast('Pillar eliminato', 'success');
+}
+
+function addPillar() {
+  state.pillars.push({ name: 'Nuovo Pillar', subtitle: '', color: '#FF4500', angles: [] });
+  renderPillars();
+  // Open last card and focus name
+  const cards = document.querySelectorAll('.pillar-card');
+  const last = cards[cards.length - 2]; // -2 because last is the add button wrapper
+  if (last) {
+    last.classList.add('open');
+    const nameEl = last.querySelector('.pillar-name');
+    if (nameEl) { setTimeout(() => { nameEl.focus(); document.execCommand('selectAll'); }, 50); }
+  }
+}
+
+function updateAngle(pillarIdx, angleIdx, val) {
+  if (!state.pillars[pillarIdx]) return;
+  if (val) state.pillars[pillarIdx].angles[angleIdx] = val;
+  else deleteAngle(pillarIdx, angleIdx);
+}
+
+function deleteAngle(pillarIdx, angleIdx) {
+  if (!state.pillars[pillarIdx]) return;
+  state.pillars[pillarIdx].angles.splice(angleIdx, 1);
+  renderPillars();
+  // Re-open the card
+  const cards = document.querySelectorAll('.pillar-card');
+  if (cards[pillarIdx]) cards[pillarIdx].classList.add('open');
+}
+
+function addAngle(pillarIdx) {
+  if (!state.pillars[pillarIdx]) return;
+  state.pillars[pillarIdx].angles.push('Nuovo angolo');
+  renderPillars();
+  // Re-open card and focus new angle
+  const cards = document.querySelectorAll('.pillar-card');
+  if (cards[pillarIdx]) {
+    cards[pillarIdx].classList.add('open');
+    const angles = cards[pillarIdx].querySelectorAll('[contenteditable]');
+    const last = angles[angles.length - 1];
+    if (last) setTimeout(() => { last.focus(); document.execCommand('selectAll'); }, 50);
+  }
 }
 
 async function regeneratePillars() {
