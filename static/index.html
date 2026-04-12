@@ -496,7 +496,10 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       </div>
       <div id="copyMeta" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px"></div>
       <div class="form-group" style="margin-top:12px">
-        <label class="form-label">Caption Instagram</label>
+        <label class="form-label" style="display:flex;align-items:center;gap:8px">
+          <span>Caption Instagram</span>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('captionArea').value).then(()=>toast('Caption copiata!','success'))" style="background:none;border:1px solid var(--border);color:var(--text-dim);font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer">Copia</button>
+        </label>
         <textarea class="form-textarea" id="captionArea" rows="4"></textarea>
       </div>
       <div class="form-group" style="margin-top:12px" id="reelScriptBlock" style="display:none">
@@ -2879,6 +2882,8 @@ async function autoExportZip() {
     }
     const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
     if (caption) zip.file('caption.txt', caption);
+    const reelScript = document.getElementById('reelScriptArea')?.value || state.currentCopy.reel_script || '';
+    if (reelScript) zip.file('script_reel.txt', reelScript);
     const blob = await zip.generateAsync({type:'blob'});
     const a = document.createElement('a');
     const postTopic = (state.selectedPosts[state.currentPostIdx]?.topic || 'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
@@ -2920,6 +2925,10 @@ async function exportZip() {
     // Add caption
     const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
     if (caption) zip.file('caption.txt', caption);
+
+    // Add reel script
+    const reelScript = document.getElementById('reelScriptArea')?.value || state.currentCopy.reel_script || '';
+    if (reelScript) zip.file('script_reel.txt', reelScript);
 
     // Add full copy block
     const fullCopy = slides.map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
