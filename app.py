@@ -495,6 +495,41 @@ Restituisci JSON:
     return parsed
 
 
+MIX_PRESETS = {
+    "bilanciato": """Distribuzione equilibrata:
+- 35% educativo (tutorial, checklist, errori comuni, statistiche)
+- 20% storytelling + ispirazionale (storie, dietro le quinte, mindset)
+- 20% engagement + community (domande, sondaggi, challenge)
+- 15% social_proof (testimonianze, casi studio, risultati)
+- 10% vendita (max 1-2 post ogni 10 su offerta diretta)
+Obiettivo: costruire fiducia e authority con un tocco commerciale leggero.""",
+
+    "crescita": """Distribuzione orientata alla viralità e acquisizione follower:
+- 30% intrattenimento (meme di settore, hot take, trend reinterpretati)
+- 25% educativo ad alto valore (statistiche shock, did you know, step by step)
+- 25% engagement (domande aperte, this or that, caption contest, sondaggi)
+- 15% ispirazionale (quote, mindset shift, lezioni di vita)
+- 5% vendita (quasi zero — priorità alla crescita organica)
+Obiettivo: massimizzare reach, salvataggi e condivisioni.""",
+
+    "autorita": """Distribuzione per posizionamento da esperto e conversione:
+- 30% autorità (analisi trend, previsioni settore, opinioni forti, hot take)
+- 25% educativo avanzato (guide approfondite, errori del settore, step by step)
+- 20% social_proof (casi studio dettagliati, risultati, testimonianze)
+- 15% vendita (offerte dirette, problema-soluzione, confronto prodotto)
+- 10% storytelling (dietro le quinte, storia trasformazione)
+Obiettivo: affermarsi come punto di riferimento del settore e convertire.""",
+
+    "educativo": """Distribuzione interamente focalizzata sul valore informativo:
+- 50% educativo (tutorial how-to, checklist, errori comuni, did you know, statistiche)
+- 20% autorità (analisi trend, previsioni, opinioni esperte)
+- 15% storytelling (dietro le quinte, day in the life)
+- 10% engagement (domande tecniche, sondaggi su problemi del settore)
+- 5% vendita (quasi assente — solo menzione soft)
+Obiettivo: diventare la risorsa informativa di riferimento per il target.""",
+}
+
+
 @app.post("/api/generate-calendar")
 async def generate_calendar(request: Request):
     data = await request.json()
@@ -544,14 +579,17 @@ PILLAR EDITORIALI (usa questi come base per i topic):
 CONFIGURAZIONE:
 Frequenza: {days_per_week} giorni/settimana, {posts_per_day} post/giorno
 Giorni attivi (0=dom, 1=lun...): {selected_days}
-Mix contenuti: {mix_preset}
-Note extra: {extra_notes}
 Data inizio: {datetime.now().strftime('%Y-%m-%d')}
+Note extra: {extra_notes}
+
+MIX CONTENUTI RICHIESTO: {mix_preset}
+{MIX_PRESETS.get(mix_preset, MIX_PRESETS["bilanciato"])}
 
 IMPORTANTE: Ogni topic deve essere SPECIFICO per "{niche}" e rivolto a "{target}".
 Non generare topic generici tipo "come gestire il tempo" — scrivi topic concreti legati al settore.
+Rispetta RIGOROSAMENTE le proporzioni del mix indicato sopra nella distribuzione dei content_category.
 
-CATEGORIE CONTENUTI da usare:
+CATEGORIE CONTENUTI disponibili:
 - educativo: tutorial_how_to, errori_comuni, checklist, did_you_know, statistiche_shock, step_by_step
 - storytelling: storia_trasformazione, dietro_le_quinte, day_in_the_life
 - engagement: sondaggio, domanda_aperta, this_or_that, caption_contest
