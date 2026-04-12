@@ -1667,7 +1667,6 @@ async function generateCopy() {
       visual_elements: getVisualElements(),
     });
     state.currentCopy = result;
-    const post = state.selectedPosts[state.currentPostIdx];
     if (post && post._status === 'generating') {
       post._status = 'copy';
       renderPostQueue();
@@ -1677,7 +1676,6 @@ async function generateCopy() {
     renderGeminiList();
     toast('Copy generato!', 'success');
   } catch(e) {
-    const post = state.selectedPosts[state.currentPostIdx];
     if (post) { post._status = 'pending'; renderPostQueue(); }
     toast('Errore copy: ' + e.message, 'error');
   } finally {
