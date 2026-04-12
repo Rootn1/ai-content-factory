@@ -499,6 +499,13 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <label class="form-label">Caption Instagram</label>
         <textarea class="form-textarea" id="captionArea" rows="4"></textarea>
       </div>
+      <div class="form-group" style="margin-top:12px" id="reelScriptBlock" style="display:none">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px">
+          <span>&#127916; Script Reel / TikTok</span>
+          <button onclick="copyReelScript()" style="background:none;border:1px solid var(--border);color:var(--text-dim);font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer">Copia</button>
+        </label>
+        <textarea class="form-textarea" id="reelScriptArea" rows="5" placeholder="Script voiceover per reel..."></textarea>
+      </div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <div class="form-group" style="flex:1">
           <textarea class="form-textarea" id="copyNotes" rows="2" placeholder="Note per rigenerare il copy..."></textarea>
@@ -1620,6 +1627,8 @@ async function loadLabPost() {
   document.getElementById('geminiSlideList').innerHTML = '';
   document.getElementById('fullCopyBlock').value = '';
   document.getElementById('captionArea').value = '';
+  document.getElementById('reelScriptArea').value = '';
+  document.getElementById('reelScriptBlock').style.display = 'none';
   document.getElementById('btnExportZip').classList.add('hidden');
 
   renderPostQueue();
@@ -1728,6 +1737,14 @@ function renderCopy(data) {
     <div><span class="form-label">Font</span><div style="font-size:13px">${state.design.fontHeading} + ${state.design.fontBody}</div></div>`;
 
   document.getElementById('captionArea').value = data.caption || '';
+
+  // Reel script — always show
+  const reelBlock = document.getElementById('reelScriptBlock');
+  const reelArea = document.getElementById('reelScriptArea');
+  if (reelBlock && reelArea) {
+    reelArea.value = data.reel_script || '';
+    reelBlock.style.display = 'block';
+  }
 }
 
 function addSlide() {
@@ -1765,6 +1782,12 @@ function updateSlide(idx, field, val) {
     state.currentCopy.slides[idx][field] = val;
     renderPreview();
   }
+}
+
+function copyReelScript() {
+  const area = document.getElementById('reelScriptArea');
+  if (!area?.value) return;
+  navigator.clipboard.writeText(area.value).then(() => toast('Script copiato!', 'success'));
 }
 
 async function regenerateCopy() {
@@ -2122,6 +2145,58 @@ function autoContrastText(bgHex, lightColor, darkColor) {
   }
 }
 
+function buildStructuredBodyHtml(rawBody, type, accent, textColor, dim, fb, ss) {
+  // Parse lines, stripping leading bullets/numbers
+  const lines = rawBody.split('\n').map(l => l.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean);
+  const baseSize = Math.round(12 * ss);
+
+  if (!type || lines.length === 0) {
+    // Plain text with markdown
+    return escHtml(rawBody).replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${textColor};font-weight:600">$1</strong>`).replace(/\*([^*]+)\*/g, `<span style="color:${accent}">$1</span>`).replace(/\n/g, '<br>');
+  }
+
+  if (type === 'checklist') {
+    return `<div style="display:flex;flex-direction:column;gap:7px">` +
+      lines.map(l => `<div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="width:16px;height:16px;border-radius:3px;border:2px solid ${accent};background:${accent}22;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center">
+          <svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1,5 3.5,7.5 8,1.5" stroke="${accent}" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <span style="font-family:'${fb}',sans-serif;font-size:${baseSize}px;color:${textColor};line-height:1.4">${escHtml(l)}</span>
+      </div>`).join('') + `</div>`;
+  }
+
+  if (type === 'mind_map') {
+    const [center, ...branches] = lines;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="background:${accent};color:#fff;font-family:'${fb}',sans-serif;font-size:${baseSize}px;font-weight:700;padding:6px 14px;border-radius:20px;text-align:center;max-width:80%">${escHtml(center||'')}</div>
+      <div style="display:grid;grid-template-columns:${branches.length > 3 ? '1fr 1fr' : '1fr'};gap:5px;width:100%;margin-top:2px">
+        ${branches.map(b => `<div style="display:flex;align-items:center;gap:6px;background:${accent}14;border-left:3px solid ${accent};border-radius:0 6px 6px 0;padding:5px 8px">
+          <span style="font-family:'${fb}',sans-serif;font-size:${Math.round(baseSize*0.92)}px;color:${textColor};line-height:1.3">${escHtml(b)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (type === 'infographic') {
+    return `<div style="display:flex;flex-direction:column;gap:6px">` +
+      lines.map((l, i) => `<div style="display:flex;align-items:center;gap:10px;background:${i%2===0?accent+'12':'transparent'};border-radius:6px;padding:5px 8px">
+        <div style="width:22px;height:22px;border-radius:50%;background:${accent};color:#fff;font-family:'${fb}',sans-serif;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+        <span style="font-family:'${fb}',sans-serif;font-size:${baseSize}px;color:${textColor};line-height:1.35;flex:1">${escHtml(l)}</span>
+      </div>`).join('') + `</div>`;
+  }
+
+  if (type === 'timeline') {
+    return `<div style="position:relative;padding-left:20px;border-left:2px solid ${accent}40">` +
+      lines.map((l, i) => `<div style="position:relative;margin-bottom:10px;padding-left:12px">
+        <div style="position:absolute;left:-21px;top:3px;width:10px;height:10px;border-radius:50%;background:${i===0?accent:accent+'80'};border:2px solid ${accent}"></div>
+        <span style="font-family:'${fb}',sans-serif;font-size:${baseSize}px;color:${i===0?textColor:dim};line-height:1.35">${escHtml(l)}</span>
+      </div>`).join('') + `</div>`;
+  }
+
+  // Fallback plain
+  return escHtml(rawBody).replace(/\n/g, '<br>');
+}
+
 function getSlideHTML(slide, idx, includeImages=false) {
   const cr = state.colorRoles;
   const so = slide._colorOverrides || {};
@@ -2157,7 +2232,14 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
   // Parse heading: *text* → accent-colored emphasis
   const headingHtml = escHtml(slide.heading || '').replace(/\*([^*]+)\*/g, `<span style="color:${accent}">$1</span>`);
-  const bodyHtml = escHtml(slide.body || '').replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${textColor};font-weight:600">$1</strong>`).replace(/\*([^*]+)\*/g, `<span style="color:${accent}">$1</span>`).replace(/\n/g, '<br>');
+
+  // Detect active structural visual element (only non-hero body slides get the treatment)
+  const ve = getVisualElements();
+  const structuralEl = !isHero && slide.type !== 'cta'
+    ? (ve.mind_maps ? 'mind_map' : ve.infographics ? 'infographic' : ve.checklist ? 'checklist' : ve.timeline ? 'timeline' : null)
+    : null;
+
+  const bodyHtml = buildStructuredBodyHtml(slide.body || '', structuralEl, accent, textColor, dim, fb, ss);
 
   // Metadata
   const totalSlides = state.currentCopy?.slides?.length || 1;
