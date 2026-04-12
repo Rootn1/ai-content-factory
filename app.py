@@ -272,8 +272,8 @@ Restituisci JSON:
   "instagram": "@handle se trovato oppure stringa vuota",
   "notes": "altre info utili trovate (nome founder, brand name, ecc.)",
   "colors": [{{"hex": "#...", "role": "background|text|accent|secondary|dim"}}],
-  "heading_font": "font heading usato o suggerito dal sito",
-  "body_font": "font body usato o suggerito dal sito"
+  "heading_font": "nome esatto del font heading (es: 'Montserrat', 'Inter', 'Playfair Display') — solo il nome, senza descrizioni",
+  "body_font": "nome esatto del font body (es: 'Open Sans', 'DM Sans', 'Roboto') — solo il nome, senza descrizioni"
 }}
 
 IMPORTANTE per i colori:

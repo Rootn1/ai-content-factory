@@ -1197,9 +1197,9 @@ function fillBrandForm(data) {
   updateAuthorBioPreview();
   if (data.heading_font || data.body_font) {
     state._extractedFonts = { heading: data.heading_font, body: data.body_font };
-    // Auto-apply extracted fonts
-    if (data.heading_font) state.design.fontHeading = data.heading_font;
-    if (data.body_font) state.design.fontBody = data.body_font;
+    // Auto-apply extracted fonts (cleaned)
+    if (data.heading_font) state.design.fontHeading = cleanFontName(data.heading_font);
+    if (data.body_font) state.design.fontBody = cleanFontName(data.body_font);
     // Load from Google Fonts
     const families = [data.heading_font, data.body_font].filter(Boolean).map(f => encodeURIComponent(f) + ':wght@400;600;700;900').join('&family=');
     const link = document.createElement('link');
@@ -1920,6 +1920,28 @@ function addLabColor() {
   renderLabPalette();
 }
 
+// Extract a clean short font name from a possibly long description
+function cleanFontName(raw) {
+  if (!raw) return '?';
+  // Common Google Fonts / system fonts to detect
+  const knownFonts = [
+    'Playfair Display','DM Serif Display','Space Grotesk','Source Sans 3',
+    'Bebas Neue','Barlow Condensed','Barlow','DM Sans','Open Sans',
+    'Montserrat','Poppins','Inter','Roboto','Lato','Raleway','Oswald',
+    'Lora','Nunito','Ubuntu','Merriweather','PT Sans','Noto Sans',
+    'Work Sans','Quicksand','Josefin Sans','Mulish','Karla','Manrope',
+    'Lexend','Outfit','Plus Jakarta Sans','Sora','Figtree','Epilogue',
+    'Helvetica Neue','Helvetica','Arial','Georgia','Times New Roman',
+    'System UI','Segoe UI','SF Pro',
+  ];
+  for (const f of knownFonts) {
+    if (raw.toLowerCase().includes(f.toLowerCase())) return f;
+  }
+  // Fallback: take first word(s) up to 20 chars before any parenthesis/comma/dash
+  const cleaned = raw.replace(/\(.*?\)/g,'').split(/[,\-–]/)[0].trim();
+  return cleaned.length <= 22 ? cleaned : cleaned.substring(0,20) + '…';
+}
+
 function renderFontGrid() {
   const fp = document.getElementById('fontPresets');
   if (!fp) return;
@@ -1927,11 +1949,13 @@ function renderFontGrid() {
   let cards = '';
   // Extracted font card (first, pre-selected if active)
   if (ef?.heading || ef?.body) {
+    const hDisplay = cleanFontName(ef.heading);
+    const bDisplay = cleanFontName(ef.body);
     const isActive = state.design.fontHeading === ef.heading && state.design.fontBody === ef.body;
     cards += `<div class="font-preset${isActive?' active':''}" onclick="selectExtractedFont(this)" style="${isActive?'border-color:var(--accent);background:var(--accent)08':''}">
       <div style="font-size:9px;color:var(--accent);font-weight:600;letter-spacing:.5px;margin-bottom:3px">&#127760; DAL SITO</div>
-      <div class="font-preset-heading" style="font-family:'${ef.heading}',sans-serif">${ef.heading||'?'}</div>
-      <div class="font-preset-body" style="font-family:'${ef.body}',sans-serif">${ef.body||'?'}</div>
+      <div class="font-preset-heading" style="font-family:'${hDisplay}',sans-serif">${hDisplay}</div>
+      <div class="font-preset-body" style="font-family:'${bDisplay}',sans-serif">${bDisplay}</div>
     </div>`;
   }
   // Static presets
@@ -1978,8 +2002,8 @@ function selectFont(idx, el) {
 function selectExtractedFont(el) {
   const ef = state._extractedFonts;
   if (!ef) return;
-  state.design.fontHeading = ef.heading || state.design.fontHeading;
-  state.design.fontBody = ef.body || state.design.fontBody;
+  state.design.fontHeading = cleanFontName(ef.heading) || state.design.fontHeading;
+  state.design.fontBody = cleanFontName(ef.body) || state.design.fontBody;
   document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   updateActiveFontDisplay();
@@ -2004,8 +2028,8 @@ function applyCustomFonts() {
   toast('Font personalizzati applicati', 'success');
 }
 function applyExtractedFonts() {
-  state.design.fontHeading = state._extractedFonts?.heading || state.design.fontHeading;
-  state.design.fontBody = state._extractedFonts?.body || state.design.fontBody;
+  state.design.fontHeading = cleanFontName(state._extractedFonts?.heading) || state.design.fontHeading;
+  state.design.fontBody = cleanFontName(state._extractedFonts?.body) || state.design.fontBody;
   // Load from Google Fonts
   const families = [state.design.fontHeading, state.design.fontBody].map(f => encodeURIComponent(f) + ':wght@400;600;700;900').join('&family=');
   const link = document.createElement('link');
