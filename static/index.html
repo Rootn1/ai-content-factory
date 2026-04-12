@@ -2331,8 +2331,8 @@ function getSlideHTML(slide, idx, includeImages=false) {
     const hasAuthor = state.authorB64;
     const authorBlock = hasAuthor ? `
       <div style="text-align:center;margin-bottom:16px">
-        <div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid ${accent};margin:0 auto 10px;box-shadow:0 4px 16px ${accent}30">
-          <img src="${state.authorB64}" style="width:100%;height:100%;object-fit:cover;object-position:center 20%">
+        <div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid ${accent};margin:0 auto 10px;box-shadow:0 4px 16px ${accent}30;flex-shrink:0;position:relative">
+          <img src="${state.authorB64}" style="position:absolute;inset:0;width:90px;height:90px;object-fit:cover;object-position:center top">
         </div>
         <div style="font-family:'${fh}',sans-serif;font-size:${14*ss}px;font-weight:700;color:${textColor}">${escHtml(aName)}</div>
         ${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:${10*ss}px;color:${dim};margin-top:2px">${escHtml(aTitle)}</div>` : ''}
