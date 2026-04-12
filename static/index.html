@@ -188,11 +188,27 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 .progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:8px}
 .progress-fill{height:100%;background:var(--accent);transition:width .3s;border-radius:2px}
 
+/* Post queue */
+.post-queue{display:flex;gap:6px;overflow-x:auto;padding:10px 0 12px;margin-bottom:4px;scrollbar-width:none}
+.post-queue::-webkit-scrollbar{display:none}
+.post-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;white-space:nowrap;transition:all .2s;background:var(--surface);color:var(--text-dim);flex-shrink:0}
+.post-chip:hover{border-color:var(--border-light);color:var(--text)}
+.post-chip.active{border-color:var(--accent);color:var(--text-bright);background:rgba(255,69,0,.08)}
+.post-chip.done{border-color:#22c55e30;color:#22c55e}
+.post-chip.active.done{border-color:#22c55e;background:#22c55e12}
+.post-chip-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.post-chip-dot.pending{background:var(--border-light)}
+.post-chip-dot.generating{background:#eab308;animation:pulse .8s ease-in-out infinite}
+.post-chip-dot.ready{background:#22c55e}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
 /* Gallery */
 .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
 .gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all .2s}
 .gallery-card:hover{border-color:var(--accent);transform:translateY(-2px)}
-.gallery-thumb{aspect-ratio:4/5;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
+.gallery-thumb{aspect-ratio:4/5;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden;position:relative}
+.gallery-thumb img{width:100%;height:100%;object-fit:cover}
+.gallery-thumb-count{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:3px}
 .gallery-info{padding:12px}
 .gallery-topic{font-size:13px;font-weight:500;color:var(--text-bright)}
 .gallery-meta{font-size:11px;color:var(--text-dim);margin-top:4px}
@@ -442,6 +458,9 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 <!-- SECTION 03: Laboratorio Contenuti -->
 <!-- ============================================================ -->
 <div id="sec-lab" class="section hidden">
+  <!-- Post queue bar -->
+  <div class="post-queue" id="postQueue"></div>
+
   <!-- Lab header -->
   <div class="lab-header">
     <div class="lab-nav">
@@ -576,11 +595,6 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <!-- D) Tipografia -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Tipografia</label>
-        <div id="fontExtracted" class="hidden" style="background:var(--accent)12;border:1px solid var(--accent)30;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:18px">&#127912;</span>
-          <div style="flex:1;font-size:12px;color:var(--text-dim)">Font estratti dal sito: <strong id="fontExtractedName" style="color:var(--text)"></strong></div>
-          <button class="btn btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyExtractedFonts()">Usa questi</button>
-        </div>
         <div class="font-presets" id="fontPresets"></div>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
           <input class="form-input" id="fCustomHeadFont" placeholder="Font heading personalizzato" style="flex:1;font-size:12px;padding:5px 8px">
@@ -596,104 +610,100 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <div class="layout-presets" id="layoutPresets"></div>
       </div>
 
-      <!-- F) Formattazione Testo (Word-style) -->
-      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+      <!-- F) Formattazione Testo — compatta con Hero + Body in riga -->
+      <div style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px">
         <label class="form-label">Formattazione Testo</label>
-
-        <!-- Alignment toolbar — Slide 1 (Hero) -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">
-          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Slide 1 (Hero)</div>
-          <div style="display:flex;gap:16px;align-items:center">
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:10px;color:var(--text-dim);width:24px">H</span>
-              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignHeadHeroBtns">
-                <button class="align-btn" onclick="setAlignField('headAlignHero','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn active" onclick="setAlignField('headAlignHero','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn" onclick="setAlignField('headAlignHero','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <!-- Hero row -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px">
+            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:600">Hero (Slide 1)</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:9px;color:var(--text-dim)">H</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="alignHeadHeroBtns">
+                <button class="align-btn" onclick="setAlignField('headAlignHero','left',this)" title="Sx"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('headAlignHero','center',this)" title="C"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('headAlignHero','right',this)" title="Dx"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+              <span style="font-size:9px;color:var(--text-dim)">B</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="alignBodyHeroBtns">
+                <button class="align-btn" onclick="setAlignField('bodyAlignHero','left',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('bodyAlignHero','center',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('bodyAlignHero','right',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+              <span style="font-size:9px;color:var(--text-dim)">&#8597;</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="vAlignHeroBtns">
+                <button class="align-btn" onclick="setDesignField('vAlignHero','top',this)" title="Alto">&#9650;</button>
+                <button class="align-btn active" onclick="setDesignField('vAlignHero','center',this)" title="Centro">&#9632;</button>
+                <button class="align-btn" onclick="setDesignField('vAlignHero','bottom',this)" title="Basso">&#9660;</button>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:10px;color:var(--text-dim);width:24px">B</span>
-              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignBodyHeroBtns">
-                <button class="align-btn" onclick="setAlignField('bodyAlignHero','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn active" onclick="setAlignField('bodyAlignHero','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn" onclick="setAlignField('bodyAlignHero','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+              <span style="font-size:9px;color:var(--text-dim);white-space:nowrap">Offset</span>
+              <input type="range" min="-120" max="120" value="0" step="5" style="flex:1;accent-color:var(--accent);height:14px" oninput="setDesignField('bodyOffsetHero',parseInt(this.value));document.getElementById('offHeroVal').textContent=this.value+'px'" id="offHeroSlider">
+              <span style="font-size:10px;color:var(--accent);width:36px;text-align:right" id="offHeroVal">0px</span>
+            </div>
+          </div>
+          <!-- Body row -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px">
+            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:600">Body (Slide 2+)</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:9px;color:var(--text-dim)">H</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="alignHeadBodyBtns">
+                <button class="align-btn" onclick="setAlignField('headAlignBody','left',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('headAlignBody','center',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('headAlignBody','right',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+              <span style="font-size:9px;color:var(--text-dim)">B</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="alignBodyBodyBtns">
+                <button class="align-btn" onclick="setAlignField('bodyAlignBody','left',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn active" onclick="setAlignField('bodyAlignBody','center',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="align-btn" onclick="setAlignField('bodyAlignBody','right',this)"><svg width="12" height="12" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              </div>
+              <span style="font-size:9px;color:var(--text-dim)">&#8597;</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden" id="vAlignBodyBtns">
+                <button class="align-btn" onclick="setDesignField('vAlignBody','top',this)" title="Alto">&#9650;</button>
+                <button class="align-btn active" onclick="setDesignField('vAlignBody','center',this)" title="Centro">&#9632;</button>
+                <button class="align-btn" onclick="setDesignField('vAlignBody','bottom',this)" title="Basso">&#9660;</button>
               </div>
             </div>
-            <div style="width:1px;height:24px;background:var(--border)"></div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:10px;color:var(--text-dim)">&#8597;</span>
-              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="vAlignHeroBtns">
-                <button class="align-btn" onclick="setVAlign('top',this)" title="Alto"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="2" stroke="currentColor" stroke-width="2"/><line x1="7" y1="4" x2="7" y2="12" stroke="currentColor" stroke-width="1.5"/><line x1="4.5" y1="6.5" x2="7" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="9.5" y1="6.5" x2="7" y2="4" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn active" onclick="setVAlign('center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/><line x1="7" y1="2" x2="7" y2="5" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="9" x2="7" y2="12" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn" onclick="setVAlign('bottom',this)" title="Basso"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="12" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="7" y1="2" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="4.5" y1="7.5" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="9.5" y1="7.5" x2="7" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
-              </div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+              <span style="font-size:9px;color:var(--text-dim);white-space:nowrap">Offset</span>
+              <input type="range" min="-120" max="120" value="0" step="5" style="flex:1;accent-color:var(--accent);height:14px" oninput="setDesignField('bodyOffsetBody',parseInt(this.value));document.getElementById('offBodyVal').textContent=this.value+'px'" id="offBodySlider">
+              <span style="font-size:10px;color:var(--accent);width:36px;text-align:right" id="offBodyVal">0px</span>
             </div>
           </div>
         </div>
-
-        <!-- Alignment toolbar — Body slides -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Slide successive (Body)</div>
-          <div style="display:flex;gap:16px;align-items:center">
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:10px;color:var(--text-dim);width:24px">H</span>
-              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignHeadBodyBtns">
-                <button class="align-btn" onclick="setAlignField('headAlignBody','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn active" onclick="setAlignField('headAlignBody','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn" onclick="setAlignField('headAlignBody','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:10px;color:var(--text-dim);width:24px">B</span>
-              <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden" id="alignBodyBodyBtns">
-                <button class="align-btn" onclick="setAlignField('bodyAlignBody','left',this)" title="Sinistra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="11" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn active" onclick="setAlignField('bodyAlignBody','center',this)" title="Centro"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                <button class="align-btn" onclick="setAlignField('bodyAlignBody','right',this)" title="Destra"><svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="3" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5"/></svg></button>
-              </div>
-            </div>
+        <!-- Size controls inline -->
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:10px;color:var(--text-dim)">Titolo</span>
+            <div class="size-slider" style="margin:0"><button onclick="adjustSize('title',-5)">-</button><span id="titleSizeVal">100%</span><button onclick="adjustSize('title',5)">+</button></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:10px;color:var(--text-dim)">Body</span>
+            <div class="size-slider" style="margin:0"><button onclick="adjustSize('sub',-5)">-</button><span id="subSizeVal">100%</span><button onclick="adjustSize('sub',5)">+</button></div>
           </div>
         </div>
-        <p class="form-hint" style="margin-top:6px">H = Headline, B = Body. Personalizza per-slide nel lightbox (click slide).</p>
-      </div>
-
-      <!-- G) Dimensioni testo -->
-      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
-        <label class="form-label">Dimensioni Testo</label>
-        <div class="form-row">
-          <div class="form-group">
-            <label style="font-size:11px;color:var(--text-dim)">Titolo</label>
-            <div class="size-slider">
-              <button onclick="adjustSize('title',-5)">-</button>
-              <span id="titleSizeVal">100%</span>
-              <button onclick="adjustSize('title',5)">+</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label style="font-size:11px;color:var(--text-dim)">Body</label>
-            <div class="size-slider">
-              <button onclick="adjustSize('sub',-5)">-</button>
-              <span id="subSizeVal">100%</span>
-              <button onclick="adjustSize('sub',5)">+</button>
-            </div>
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:8px">
-          <label style="font-size:11px;color:var(--text-dim)">Offset Body <span id="bodyOffsetVal" style="color:var(--accent);font-weight:600">0px</span></label>
-          <input type="range" id="bodyOffsetSlider" min="-120" max="120" value="0" step="5" style="width:100%;accent-color:var(--accent)" oninput="setBodyOffset(this.value)">
-        </div>
+        <p class="form-hint" style="margin-top:4px">Override per singola slide nel lightbox (click slide).</p>
       </div>
 
       <!-- H) Elementi Visivi per Gemini -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Elementi Visivi (Gemini)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
           <label class="ve-chip"><input type="checkbox" id="chkDoodles" checked><span>&#9997; Doodles</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkIcons" checked><span>&#128161; Icone</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkStickers"><span>&#127881; Stickers</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkSwipeVisual" checked><span>&#128073; Swipe</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkHeroImage" checked><span>&#127775; Hero img</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkShapes"><span>&#9670; Forme</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkInfographics"><span>&#128202; Infografiche</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkMindMaps"><span>&#128300; Mappe mentali</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkChecklist"><span>&#9745; Checklist</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkCharts"><span>&#128200; Grafici</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkQuotes"><span>&#128172; Citazioni</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkTimeline"><span>&#128197; Timeline</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkDiagrams"><span>&#128208; Diagrammi</span></label>
         </div>
       </div>
     </div>
@@ -793,13 +803,16 @@ let state = {
     headAlignBody: 'center',
     bodyAlignHero: 'center',
     bodyAlignBody: 'center',
-    vAlign: 'center',
-    bodyOffsetY: 0,
+    vAlignHero: 'center',
+    vAlignBody: 'center',
+    bodyOffsetHero: 0,
+    bodyOffsetBody: 0,
     titleSize: 100,
     subSize: 100,
   },
   refImages: [],
   paletteImage: null,
+  completedPosts: [],
 };
 
 // =================================================================
@@ -811,11 +824,14 @@ function goSection(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add('active');
   if (name === 'gallery') loadGallery();
-  if (name === 'lab' && state.selectedPosts.length && !state.currentCopy) loadLabPost();
+  if (name === 'lab') {
+    renderPostQueue();
+    if (state.selectedPosts.length && !state.currentCopy) loadLabPost();
+  }
 }
 
 function newProject() {
-  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',headAlignHero:'center',headAlignBody:'center',bodyAlignHero:'center',bodyAlignBody:'center',vAlign:'center',bodyOffsetY:0,titleSize:100,subSize:100},refImages:[],paletteImage:null};
+  state = {slug:'',brand:{},keywords:[],colors:[],colorRoles:{background:'',text:'',accent:'',secondary:'',dim:''},alternateSlides:false,pillars:[],calendar:[],selectedPosts:[],currentPostIdx:0,currentCopy:null,aspect:'4:5',duration:30,frequency:{days_per_week:5,posts_per_day:1,selected_days:[1,2,3,4,5]},mix:'bilanciato',logoB64:null,authorB64:null,design:{palette:null,fontHeading:'Poppins',fontBody:'DM Sans',layout:'centered',headAlignHero:'center',headAlignBody:'center',bodyAlignHero:'center',bodyAlignBody:'center',vAlignHero:'center',vAlignBody:'center',bodyOffsetHero:0,bodyOffsetBody:0,titleSize:100,subSize:100},refImages:[],paletteImage:null,completedPosts:[]};
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('completed'));
   ['fNiche','fUsp','fTone','fTarget','fInstagram','fNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tagContainer').querySelectorAll('.tag').forEach(t => t.remove());
@@ -1179,14 +1195,6 @@ function fillBrandForm(data) {
   updateAuthorBioPreview();
   if (data.heading_font || data.body_font) {
     state._extractedFonts = { heading: data.heading_font, body: data.body_font };
-    // Show extracted font banner
-    const banner = document.getElementById('fontExtracted');
-    const nameEl = document.getElementById('fontExtractedName');
-    if (banner && nameEl) {
-      nameEl.textContent = `${data.heading_font || '?'} + ${data.body_font || '?'}`;
-      banner.classList.remove('hidden');
-      banner.style.display = 'flex';
-    }
     // Auto-apply extracted fonts
     if (data.heading_font) state.design.fontHeading = data.heading_font;
     if (data.body_font) state.design.fontBody = data.body_font;
@@ -1196,6 +1204,8 @@ function fillBrandForm(data) {
     link.rel = 'stylesheet';
     link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
     document.head.appendChild(link);
+    // Re-render font grid to show extracted card pre-selected
+    renderFontGrid();
   }
   updateActiveFontDisplay();
 }
@@ -1481,30 +1491,69 @@ function downloadBlob(content, filename, type) {
 // =================================================================
 // LAB
 // =================================================================
+function renderPostQueue() {
+  const container = document.getElementById('postQueue');
+  if (!container || !state.selectedPosts.length) return;
+  container.innerHTML = state.selectedPosts.map((p, i) => {
+    const status = p._status || 'pending';
+    const isActive = i === state.currentPostIdx;
+    return `<div class="post-chip${isActive?' active':''}${status==='ready'?' done':''}" onclick="goToPost(${i})">
+      <span class="post-chip-dot ${status}"></span>
+      <span>${escHtml((p.topic||'Post '+(i+1)).substring(0,28))}</span>
+    </div>`;
+  }).join('');
+  // Scroll active chip into view
+  const activeChip = container.querySelector('.post-chip.active');
+  if (activeChip) activeChip.scrollIntoView({inline:'nearest',behavior:'smooth'});
+}
+
+async function goToPost(idx) {
+  if (idx === state.currentPostIdx) return;
+  state.currentPostIdx = idx;
+  state.currentCopy = null;
+  await loadLabPost();
+}
+
 async function loadLabPost() {
   const post = state.selectedPosts[state.currentPostIdx];
   if (!post) return;
-  document.getElementById('labCounter').textContent = `Post ${state.currentPostIdx + 1}/${state.selectedPosts.length}`;
+
+  // Clear previous content immediately
   document.getElementById('labTitle').textContent = post.topic;
   document.getElementById('labBadge').innerHTML = `<span class="badge badge-${post.content_category||''}">${post.content_type||''}</span> <span style="font-size:11px;color:var(--text-dim)">${post.date||''}</span>`;
+  document.getElementById('labCounter').textContent = `Post ${state.currentPostIdx + 1}/${state.selectedPosts.length}`;
+  document.getElementById('slidesCards').innerHTML = '';
+  document.getElementById('previewGrid').innerHTML = '';
+  document.getElementById('geminiSlideList').innerHTML = '';
+  document.getElementById('fullCopyBlock').value = '';
+  document.getElementById('captionArea').value = '';
+  document.getElementById('btnExportZip').classList.add('hidden');
+
+  renderPostQueue();
+
+  // If already completed, restore
+  if (post._status === 'ready' && post._savedCopy) {
+    state.currentCopy = post._savedCopy;
+    renderCopy(state.currentCopy);
+    renderPreview();
+    renderGeminiList();
+    document.getElementById('btnExportZip').classList.remove('hidden');
+    return;
+  }
+
+  // Mark as generating
+  post._status = 'generating';
+  renderPostQueue();
 
   // Auto-generate copy
   await generateCopy();
 }
 
 function labPrev() {
-  if (state.currentPostIdx > 0) {
-    state.currentPostIdx--;
-    state.currentCopy = null;
-    loadLabPost();
-  }
+  if (state.currentPostIdx > 0) goToPost(state.currentPostIdx - 1);
 }
 function labNext() {
-  if (state.currentPostIdx < state.selectedPosts.length - 1) {
-    state.currentPostIdx++;
-    state.currentCopy = null;
-    loadLabPost();
-  }
+  if (state.currentPostIdx < state.selectedPosts.length - 1) goToPost(state.currentPostIdx + 1);
 }
 
 // =================================================================
@@ -1525,11 +1574,18 @@ async function generateCopy() {
       visual_elements: getVisualElements(),
     });
     state.currentCopy = result;
+    const post = state.selectedPosts[state.currentPostIdx];
+    if (post && post._status === 'generating') {
+      post._status = 'copy';
+      renderPostQueue();
+    }
     renderCopy(result);
     renderPreview();
     renderGeminiList();
     toast('Copy generato!', 'success');
   } catch(e) {
+    const post = state.selectedPosts[state.currentPostIdx];
+    if (post) { post._status = 'pending'; renderPostQueue(); }
     toast('Errore copy: ' + e.message, 'error');
   } finally {
     loading.classList.add('hidden');
@@ -1674,7 +1730,7 @@ const FONT_PRESETS = [
   {heading:'Space Grotesk',body:'Inter'},
 ];
 
-const LAYOUTS = ['Centered','Split','Titolo + Img','Quote','List','Card','Magazine'];
+const LAYOUTS = ['Centered','Left','Quote','List'];
 
 function showPaletteTab(tab, btn) {
   btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
@@ -1773,14 +1829,37 @@ function addLabColor() {
   renderLabPalette();
 }
 
-function initDesignBlock() {
-  // Fonts
+function renderFontGrid() {
   const fp = document.getElementById('fontPresets');
-  fp.innerHTML = FONT_PRESETS.map((f, i) => `
-    <div class="font-preset${f.heading===state.design.fontHeading?' active':''}" onclick="selectFont(${i},this)">
+  if (!fp) return;
+  const ef = state._extractedFonts;
+  let cards = '';
+  // Extracted font card (first, pre-selected if active)
+  if (ef?.heading || ef?.body) {
+    const isActive = state.design.fontHeading === ef.heading && state.design.fontBody === ef.body;
+    cards += `<div class="font-preset${isActive?' active':''}" onclick="selectExtractedFont(this)" style="${isActive?'border-color:var(--accent);background:var(--accent)08':''}">
+      <div style="font-size:9px;color:var(--accent);font-weight:600;letter-spacing:.5px;margin-bottom:3px">&#127760; DAL SITO</div>
+      <div class="font-preset-heading" style="font-family:'${ef.heading}',sans-serif">${ef.heading||'?'}</div>
+      <div class="font-preset-body" style="font-family:'${ef.body}',sans-serif">${ef.body||'?'}</div>
+    </div>`;
+  }
+  // Static presets
+  cards += FONT_PRESETS.map((f, i) => {
+    const isActive = !ef && state.design.fontHeading === f.heading && state.design.fontBody === f.body;
+    // If extracted font is active, don't mark any preset as active
+    const efActive = ef && state.design.fontHeading === ef.heading && state.design.fontBody === ef.body;
+    const active = !efActive && f.heading === state.design.fontHeading && f.body === state.design.fontBody;
+    return `<div class="font-preset${active?' active':''}" onclick="selectFont(${i},this)">
       <div class="font-preset-heading" style="font-family:'${f.heading}',sans-serif">${f.heading}</div>
       <div class="font-preset-body" style="font-family:'${f.body}',sans-serif">${f.body}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  fp.innerHTML = cards;
+}
+
+function initDesignBlock() {
+  // Fonts
+  renderFontGrid();
 
   // Layouts
   const lp = document.getElementById('layoutPresets');
@@ -1805,6 +1884,16 @@ function selectFont(idx, el) {
   updateActiveFontDisplay();
   renderPreview();
 }
+function selectExtractedFont(el) {
+  const ef = state._extractedFonts;
+  if (!ef) return;
+  state.design.fontHeading = ef.heading || state.design.fontHeading;
+  state.design.fontBody = ef.body || state.design.fontBody;
+  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  updateActiveFontDisplay();
+  renderPreview();
+}
 function applyCustomFonts() {
   const hf = document.getElementById('fCustomHeadFont').value.trim();
   const bf = document.getElementById('fCustomBodyFont').value.trim();
@@ -1818,7 +1907,7 @@ function applyCustomFonts() {
     link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
     document.head.appendChild(link);
   }
-  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  renderFontGrid();
   updateActiveFontDisplay();
   renderPreview();
   toast('Font personalizzati applicati', 'success');
@@ -1832,7 +1921,7 @@ function applyExtractedFonts() {
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
   document.head.appendChild(link);
-  document.querySelectorAll('.font-preset').forEach(p => p.classList.remove('active'));
+  renderFontGrid();
   updateActiveFontDisplay();
   renderPreview();
   toast('Font dal sito applicati', 'success');
@@ -1865,6 +1954,13 @@ function getVisualElements() {
     swipe_visual: document.getElementById('chkSwipeVisual')?.checked || false,
     hero_image: document.getElementById('chkHeroImage')?.checked || false,
     shapes: document.getElementById('chkShapes')?.checked || false,
+    infographics: document.getElementById('chkInfographics')?.checked || false,
+    mind_maps: document.getElementById('chkMindMaps')?.checked || false,
+    checklist: document.getElementById('chkChecklist')?.checked || false,
+    charts: document.getElementById('chkCharts')?.checked || false,
+    quotes: document.getElementById('chkQuotes')?.checked || false,
+    timeline: document.getElementById('chkTimeline')?.checked || false,
+    diagrams: document.getElementById('chkDiagrams')?.checked || false,
   };
 }
 function setAlignField(field, val, btn) {
@@ -1873,17 +1969,17 @@ function setAlignField(field, val, btn) {
   btn.classList.add('active');
   renderPreview();
 }
-function setVAlign(va, btn) {
-  state.design.vAlign = va;
-  btn.parentElement.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function setDesignField(field, val, btn) {
+  state.design[field] = val;
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
   renderPreview();
 }
-function setBodyOffset(val) {
-  state.design.bodyOffsetY = parseInt(val);
-  document.getElementById('bodyOffsetVal').textContent = val + 'px';
-  renderPreview();
-}
+// Legacy wrappers (kept for any remaining references)
+function setVAlign(va, btn) { setDesignField('vAlignHero', va, btn); }
+function setBodyOffset(val) { setDesignField('bodyOffsetHero', parseInt(val)); }
 
 // =================================================================
 // PREVIEW
@@ -1930,8 +2026,8 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const isHero = slide.type === 'hero' || idx === 0;
   const headAlign = isHero ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center');
   const bodyAlign = isHero ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center');
-  const va = slide._vAlign || state.design.vAlign || 'center';
-  const bodyOff = slide._bodyOffsetY ?? state.design.bodyOffsetY ?? 0;
+  const va = slide._vAlign || (isHero ? state.design.vAlignHero : state.design.vAlignBody) || 'center';
+  const bodyOff = slide._bodyOffsetY ?? (isHero ? state.design.bodyOffsetHero : state.design.bodyOffsetBody) ?? 0;
   const bodyTransform = bodyOff !== 0 ? `transform:translateY(${bodyOff}px)` : '';
   const ts = state.design.titleSize / 100;
   const ss = state.design.subSize / 100;
@@ -1939,6 +2035,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const aspectMap = {'1:1':'420px 420px','4:5':'420px 525px','9:16':'420px 747px','16:9':'747px 420px'};
   const [w, h] = (aspectMap[state.aspect]||'420px 525px').split(' ');
   const vaCSS = va === 'top' ? 'flex-start' : va === 'bottom' ? 'flex-end' : 'center';
+  const layout = state.design.layout || 'centered';
 
   // Gemini image: when available, covers HTML at full opacity (text is already baked in)
   const imgTag = includeImages && slide.img_b64 ? `<img src="data:image/png;base64,${slide.img_b64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:10">` : '';
@@ -1997,14 +2094,37 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
   if (isHero) {
     // ─── HERO / COVER ───
-    const tagEl = pillarTag ? `<div style="font-family:'${fb}',sans-serif;font-size:${9*ss}px;font-weight:600;letter-spacing:2.5px;color:${accent};text-transform:uppercase;margin-bottom:16px;text-align:${headAlign}">${escHtml(pillarTag)}</div>` : '';
+    const tagEl = pillarTag ? `<div style="font-family:'${fb}',sans-serif;font-size:${9*ss}px;font-weight:600;letter-spacing:2.5px;color:${accent};text-transform:uppercase;margin-bottom:16px;text-align:${layout==='left'?'left':headAlign}">${escHtml(pillarTag)}</div>` : '';
 
-    content = `
-      <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
-        ${tagEl}
-        <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:900;color:${textColor};line-height:1.1;margin-bottom:16px;text-align:${headAlign}">${headingHtml}</div>
-        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.55;text-align:${bodyAlign};${bodyTransform}">${bodyHtml}</div>
-      </div>`;
+    if (layout === 'quote') {
+      // QUOTE layout: large decorative marks, centered pull-quote
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
+          <div style="font-family:Georgia,serif;font-size:72px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-start;padding-left:4px">&ldquo;</div>
+          <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin:8px 0 16px;font-style:italic;text-align:center">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:center;${bodyTransform}">${bodyHtml}</div>
+          <div style="font-family:Georgia,serif;font-size:72px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-end;padding-right:4px">&rdquo;</div>
+        </div>`;
+    } else if (layout === 'list') {
+      // LIST layout: body parsed as bullet points
+      const items = (slide.body||'').split('\n').filter(l=>l.trim()).map(l=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px"><span style="color:${accent};font-weight:700;flex-shrink:0">▸</span><span>${escHtml(l.replace(/^[-•*]\s*/,''))}</span></div>`).join('');
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+          ${tagEl}
+          <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:900;color:${textColor};line-height:1.1;margin-bottom:16px;text-align:left">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:left;${bodyTransform}">${items||bodyHtml}</div>
+        </div>`;
+    } else {
+      // CENTERED (default) or LEFT
+      const ha = layout === 'left' ? 'left' : headAlign;
+      const ba = layout === 'left' ? 'left' : bodyAlign;
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+          ${tagEl}
+          <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:900;color:${textColor};line-height:1.1;margin-bottom:16px;text-align:${ha}">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.55;text-align:${ba};${bodyTransform}">${bodyHtml}</div>
+        </div>`;
+    }
 
   } else if (slide.type === 'cta') {
     // ─── CTA — prominent author photo + follow/save/DM actions ───
@@ -2023,19 +2143,38 @@ function getSlideHTML(slide, idx, includeImages=false) {
         ${authorBlock}
         <div style="font-family:'${fh}',sans-serif;font-size:${22*ts}px;font-weight:900;color:${textColor};margin-bottom:12px;line-height:1.15;text-align:center">${headingHtml}</div>
         <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};margin-bottom:20px;text-align:center;line-height:1.5;${bodyTransform}">${bodyHtml}</div>
-        <div style="display:inline-block;background:${accent};color:${bg};font-family:'${fb}',sans-serif;font-size:${11*ss}px;font-weight:600;padding:10px 30px;border-radius:6px;letter-spacing:0.5px">SEGUIMI &rarr;</div>
       </div>`;
 
   } else {
     // ─── BODY SLIDE ───
     const numBadge = `<div style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:${accent};color:${bg};font-family:'${fh}',sans-serif;font-size:12px;font-weight:700;margin-bottom:14px;flex-shrink:0">${idx < 10 ? '0' : ''}${idx}</div>`;
 
-    content = `
-      <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
-        ${numBadge}
-        <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:12px;line-height:1.2;text-align:${headAlign}">${headingHtml}</div>
-        <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;text-align:${bodyAlign};${bodyTransform}">${bodyHtml}</div>
-      </div>`;
+    if (layout === 'quote') {
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
+          <div style="font-family:Georgia,serif;font-size:60px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-start;padding-left:4px">&ldquo;</div>
+          <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin:8px 0 14px;font-style:italic;text-align:center">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:center;${bodyTransform}">${bodyHtml}</div>
+          <div style="font-family:Georgia,serif;font-size:60px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-end;padding-right:4px">&rdquo;</div>
+        </div>`;
+    } else if (layout === 'list') {
+      const items = (slide.body||'').split('\n').filter(l=>l.trim()).map(l=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px"><span style="color:${accent};font-weight:700;flex-shrink:0">▸</span><span>${escHtml(l.replace(/^[-•*]\s*/,''))}</span></div>`).join('');
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+          ${numBadge}
+          <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:12px;line-height:1.2;text-align:left">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.6;text-align:left;${bodyTransform}">${items||bodyHtml}</div>
+        </div>`;
+    } else {
+      const ha = layout === 'left' ? 'left' : headAlign;
+      const ba = layout === 'left' ? 'left' : bodyAlign;
+      content = `
+        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+          ${numBadge}
+          <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:12px;line-height:1.2;text-align:${ha}">${headingHtml}</div>
+          <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;text-align:${ba};${bodyTransform}">${bodyHtml}</div>
+        </div>`;
+    }
   }
 
   // Author overlay for non-CTA slides (above progress bar)
@@ -2123,8 +2262,9 @@ function openLightbox(idx) {
   const curAccent = sColors.accent || '';
   const curDim = sColors.dim || '';
 
-  const slideVAlign = slide._vAlign || state.design.vAlign || 'center';
-  const slideBodyOff = slide._bodyOffsetY ?? state.design.bodyOffsetY ?? 0;
+  const isHeroSlide = slide.type === 'hero' || idx === 0;
+  const slideVAlign = slide._vAlign || (isHeroSlide ? state.design.vAlignHero : state.design.vAlignBody) || 'center';
+  const slideBodyOff = slide._bodyOffsetY ?? (isHeroSlide ? state.design.bodyOffsetHero : state.design.bodyOffsetBody) ?? 0;
 
   content.innerHTML = `
     <div id="lbSlideWrap" style="margin-bottom:16px;position:relative;cursor:grab">${getSlideHTML(slide, idx, true)}</div>
@@ -2233,6 +2373,10 @@ function initBodyDrag(idx) {
   const bodyEl = wrap.querySelector('.slide-body-text');
   if (!bodyEl) return;
 
+  const slide = state.currentCopy?.slides?.[idx];
+  const isHeroDrag = slide?.type === 'hero' || idx === 0;
+  const offField = isHeroDrag ? 'bodyOffsetHero' : 'bodyOffsetBody';
+
   bodyEl.style.cursor = 'ns-resize';
   bodyEl.style.userSelect = 'none';
   bodyEl.title = 'Trascina su/giù per riposizionare il body';
@@ -2243,21 +2387,23 @@ function initBodyDrag(idx) {
     e.preventDefault();
     dragging = true;
     startY = e.clientY;
-    startOffset = state.design.bodyOffsetY || 0;
+    startOffset = slide?._bodyOffsetY ?? state.design[offField] ?? 0;
     bodyEl.style.cursor = 'grabbing';
   });
 
   document.addEventListener('mousemove', (e) => {
     if (!dragging) return;
     const delta = e.clientY - startY;
-    // Scale delta relative to lightbox size vs actual slide
     const slideEl = wrap.firstElementChild;
     const scale = slideEl ? (525 / slideEl.offsetHeight) : 1;
     const newOff = Math.round(Math.max(-120, Math.min(120, startOffset + delta * scale)));
-    state.design.bodyOffsetY = newOff;
-    document.getElementById('bodyOffsetVal').textContent = newOff + 'px';
-    document.getElementById('bodyOffsetSlider').value = newOff;
-    // Live update the body element transform
+    if (slide?._bodyOffsetY !== undefined) {
+      slide._bodyOffsetY = newOff;
+    } else {
+      state.design[offField] = newOff;
+    }
+    const valEl = document.getElementById('lbOffsetVal');
+    if (valEl) valEl.textContent = newOff + 'px';
     bodyEl.style.transform = `translateY(${newOff}px)`;
   });
 
@@ -2272,7 +2418,7 @@ function initBodyDrag(idx) {
   bodyEl.addEventListener('touchstart', (e) => {
     dragging = true;
     startY = e.touches[0].clientY;
-    startOffset = state.design.bodyOffsetY || 0;
+    startOffset = slide?._bodyOffsetY ?? state.design[offField] ?? 0;
   }, {passive: true});
 
   document.addEventListener('touchmove', (e) => {
@@ -2281,9 +2427,13 @@ function initBodyDrag(idx) {
     const slideEl = wrap.firstElementChild;
     const scale = slideEl ? (525 / slideEl.offsetHeight) : 1;
     const newOff = Math.round(Math.max(-120, Math.min(120, startOffset + delta * scale)));
-    state.design.bodyOffsetY = newOff;
-    document.getElementById('bodyOffsetVal').textContent = newOff + 'px';
-    document.getElementById('bodyOffsetSlider').value = newOff;
+    if (slide?._bodyOffsetY !== undefined) {
+      slide._bodyOffsetY = newOff;
+    } else {
+      state.design[offField] = newOff;
+    }
+    const valEl = document.getElementById('lbOffsetVal');
+    if (valEl) valEl.textContent = newOff + 'px';
     bodyEl.style.transform = `translateY(${newOff}px)`;
   }, {passive: true});
 
@@ -2355,7 +2505,8 @@ async function regenSlide(idx) {
         headAlignBody: state.design.headAlignBody,
         bodyAlignHero: state.design.bodyAlignHero,
         bodyAlignBody: state.design.bodyAlignBody,
-        vAlign: state.design.vAlign,
+        vAlignHero: state.design.vAlignHero,
+        vAlignBody: state.design.vAlignBody,
         layout: state.design.layout,
       },
     });
@@ -2369,7 +2520,11 @@ async function regenSlide(idx) {
 
   // Show ZIP only if all done
   const allDone = slides.every(s => !!s.img_b64);
-  if (allDone) document.getElementById('btnExportZip').classList.remove('hidden');
+  if (allDone) {
+    document.getElementById('btnExportZip').classList.remove('hidden');
+    const post = state.selectedPosts[state.currentPostIdx];
+    if (post) { post._status = 'ready'; renderPostQueue(); }
+  }
 }
 
 async function generateImages() {
@@ -2433,7 +2588,8 @@ async function generateImages() {
             headAlignBody: state.design.headAlignBody,
             bodyAlignHero: state.design.bodyAlignHero,
             bodyAlignBody: state.design.bodyAlignBody,
-            vAlign: state.design.vAlign,
+            vAlignHero: state.design.vAlignHero,
+            vAlignBody: state.design.vAlignBody,
             layout: state.design.layout,
           },
         });
@@ -2486,11 +2642,54 @@ async function generateImages() {
   const allGenerated = slides.every(s => !!s.img_b64);
   if (allGenerated) {
     document.getElementById('btnExportZip').classList.remove('hidden');
-    toast('Tutte le slide generate!', 'success');
+    // Mark post as ready and save copy for restore
+    const post = state.selectedPosts[state.currentPostIdx];
+    if (post) {
+      post._status = 'ready';
+      post._savedCopy = JSON.parse(JSON.stringify(state.currentCopy));
+      // Add to gallery
+      const alreadyIn = state.completedPosts.findIndex(p => p.topic === post.topic);
+      const galleryEntry = {
+        topic: post.topic,
+        date: post.date,
+        content_type: post.content_type,
+        slides: post._savedCopy.slides,
+        caption: post._savedCopy.caption || '',
+        completedAt: new Date().toISOString(),
+      };
+      if (alreadyIn >= 0) state.completedPosts[alreadyIn] = galleryEntry;
+      else state.completedPosts.unshift(galleryEntry);
+      renderPostQueue();
+    }
+    toast('✓ Tutte le slide generate — download ZIP in corso...', 'success');
+    // Auto-download ZIP
+    await autoExportZip();
   } else {
     const failed = slides.filter(s => !s.img_b64).length;
     toast(`${failed} slide non generate. Riprova con "Genera le slide".`, 'error');
   }
+}
+
+async function autoExportZip() {
+  try {
+    const zip = new JSZip();
+    const slides = state.currentCopy.slides;
+    const folder = zip.folder('slides');
+    for (let i = 0; i < slides.length; i++) {
+      let imgData = slides[i].img_b64;
+      if (!imgData) { try { imgData = await captureSlideAsPng(slides[i], i); } catch(e) {} }
+      if (imgData) folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, imgData, {base64: true});
+    }
+    const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
+    if (caption) zip.file('caption.txt', caption);
+    const blob = await zip.generateAsync({type:'blob'});
+    const a = document.createElement('a');
+    const postTopic = (state.selectedPosts[state.currentPostIdx]?.topic || 'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
+    a.href = URL.createObjectURL(blob);
+    a.download = `${state.slug||'content'}-${postTopic}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch(e) { console.error('Auto-ZIP error:', e); }
 }
 
 function getSlideFullHTML(slide, idx, includeImages) {
@@ -2548,22 +2747,72 @@ async function exportZip() {
 // GALLERY
 // =================================================================
 async function loadGallery() {
-  try {
-    const projects = await api('/api/projects', null, 'GET');
-    const grid = document.getElementById('galleryGrid');
-    if (!projects.length) {
-      grid.innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:40px">Nessun progetto ancora. Crea il tuo primo brand!</p>';
-      return;
-    }
-    grid.innerHTML = projects.map(p => `
-      <div class="gallery-card" onclick="loadProject('${p.slug}')">
-        <div class="gallery-thumb">&#128196;</div>
-        <div class="gallery-info">
-          <div class="gallery-topic">${escHtml(p.name)}</div>
-          <div class="gallery-meta">${p.post_count} post &middot; ${p.completed_count} completati</div>
+  const grid = document.getElementById('galleryGrid');
+  if (!state.completedPosts.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-dim)">
+      <div style="font-size:48px;margin-bottom:16px">&#128247;</div>
+      <div style="font-size:15px;font-weight:500;color:var(--text);margin-bottom:8px">Nessun post completato ancora</div>
+      <div style="font-size:13px">Genera le slide di un post nel Lab — appariranno qui automaticamente.</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = state.completedPosts.map((p, i) => {
+    const firstSlide = p.slides?.find(s => s.img_b64);
+    const thumb = firstSlide?.img_b64
+      ? `<img src="data:image/png;base64,${firstSlide.img_b64}" alt="${escHtml(p.topic)}">`
+      : `<span style="font-size:32px">&#128196;</span>`;
+    const slideCount = p.slides?.length || 0;
+    const doneCount = p.slides?.filter(s=>s.img_b64).length || 0;
+    const dateStr = p.completedAt ? new Date(p.completedAt).toLocaleDateString('it-IT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="gallery-card">
+      <div class="gallery-thumb">
+        ${thumb}
+        <span class="gallery-thumb-count">${doneCount}/${slideCount} slide</span>
+      </div>
+      <div class="gallery-info">
+        <div class="gallery-topic">${escHtml(p.topic)}</div>
+        <div class="gallery-meta">${p.content_type||''} &middot; ${dateStr}</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-sm btn-secondary" onclick="redownloadPost(${i})" style="font-size:11px;padding:4px 10px">&#128230; ZIP</button>
+          <button class="btn btn-sm btn-secondary" onclick="goToLabPost(${i})" style="font-size:11px;padding:4px 10px">&#9998; Modifica</button>
         </div>
-      </div>`).join('');
-  } catch(e) { console.error(e); }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function redownloadPost(galleryIdx) {
+  const p = state.completedPosts[galleryIdx];
+  if (!p) return;
+  const zip = new JSZip();
+  const folder = zip.folder('slides');
+  for (let i = 0; i < p.slides.length; i++) {
+    if (p.slides[i].img_b64) folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, p.slides[i].img_b64, {base64: true});
+  }
+  if (p.caption) zip.file('caption.txt', p.caption);
+  const blob = await zip.generateAsync({type:'blob'});
+  const a = document.createElement('a');
+  const name = (p.topic||'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state.slug||'content'}-${name}.zip`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('ZIP scaricato!', 'success');
+}
+
+function goToLabPost(galleryIdx) {
+  const p = state.completedPosts[galleryIdx];
+  if (!p) return;
+  // Find matching post in selectedPosts
+  const idx = state.selectedPosts.findIndex(sp => sp.topic === p.topic);
+  if (idx >= 0) {
+    state.currentPostIdx = idx;
+    state.currentCopy = p.slides ? {slides: p.slides, caption: p.caption} : null;
+    goSection('lab');
+    loadLabPost();
+  } else {
+    goSection('lab');
+  }
 }
 
 async function loadProject(slug) {

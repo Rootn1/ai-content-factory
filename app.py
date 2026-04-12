@@ -794,6 +794,20 @@ async def generate_images(request: Request):
         ve_parts.append("Add a clear swipe indicator on the right edge (subtle chevron, gradient fade, or visual cue) to encourage swiping to next slide.")
     if visual_elements.get("shapes"):
         ve_parts.append("Use geometric shapes, patterns, and abstract forms as decorative background elements to fill empty space.")
+    if visual_elements.get("infographics"):
+        ve_parts.append("Add infographic-style visual elements: data visualizations, stats callouts, comparison bars, percentage circles, or mini-charts that reinforce the message.")
+    if visual_elements.get("mind_maps"):
+        ve_parts.append("Add mind-map style visual connections: branching lines, node clusters, connected concepts with lines/arrows to show relationships between ideas.")
+    if visual_elements.get("checklist"):
+        ve_parts.append("Add checklist-style visual elements: checkboxes, numbered step markers, progress indicators, or task-completion visuals.")
+    if visual_elements.get("charts"):
+        ve_parts.append("Add chart/graph style decorative elements: simple bar charts, line graphs, pie charts, or trend arrows as visual accents.")
+    if visual_elements.get("quotes"):
+        ve_parts.append("Add quotation-style visual elements: large decorative quote marks, speech bubbles, callout boxes, or testimonial-style frames.")
+    if visual_elements.get("timeline"):
+        ve_parts.append("Add timeline-style visual elements: horizontal or vertical timelines, step markers, progress paths, or sequential flow indicators.")
+    if visual_elements.get("diagrams"):
+        ve_parts.append("Add diagram-style visual elements: flowcharts, process diagrams, cycle graphics, or structured visual frameworks.")
     visual_instructions = "\n".join(ve_parts)
     hero_image_requested = visual_elements.get("hero_image", False)
 
@@ -810,7 +824,7 @@ async def generate_images(request: Request):
         is_hero = st == "hero" or slide_idx == 1
         head_align = design_settings.get("headAlignHero" if is_hero else "headAlignBody", "center")
         body_align = design_settings.get("bodyAlignHero" if is_hero else "bodyAlignBody", "center")
-        v_align = design_settings.get("vAlign", "center")
+        v_align = design_settings.get("vAlignHero" if is_hero else "vAlignBody", "center")
         layout_style = design_settings.get("layout", "centered")
 
         # Build reference images list — only the HTML-rendered PNG
