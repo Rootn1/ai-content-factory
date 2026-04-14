@@ -168,6 +168,10 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 .preview-thumb{background:#1a1a1a;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0;font-size:11px;text-align:center;transition:all .2s}
 .preview-thumb:hover{border-color:var(--accent)}
 .preview-thumb .thumb-label{position:absolute;top:6px;left:6px;font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px;z-index:10}
+.slide-regen-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s;background:rgba(0,0,0,.55);z-index:20;border-radius:var(--radius-sm)}
+.preview-thumb:hover .slide-regen-overlay{opacity:1}
+.slide-regen-btn{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;letter-spacing:.3px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.slide-regen-btn:hover{filter:brightness(1.15)}
 
 /* Lightbox */
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;justify-content:center;align-items:center}
@@ -2179,8 +2183,8 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const fh = state.design.fontHeading;
   const fb = state.design.fontBody;
   const isHero = slide.type === 'hero' || idx === 0;
-  const headAlign = isHero ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center');
-  const bodyAlign = isHero ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center');
+  const headAlign = slide._headAlign || (isHero ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center'));
+  const bodyAlign = slide._bodyAlign || (isHero ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center'));
   const va = slide._vAlign || (isHero ? state.design.vAlignHero : state.design.vAlignBody) || 'center';
   const bodyOff = slide._bodyOffsetY ?? (isHero ? state.design.bodyOffsetHero : state.design.bodyOffsetBody) ?? 0;
   const bodyTransform = bodyOff !== 0 ? `transform:translateY(${bodyOff}px)` : '';
@@ -2251,7 +2255,27 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const aName = document.getElementById('fAuthorName')?.value || state.brand.instagram || '';
   const aTitle = document.getElementById('fAuthorTitle')?.value || '';
 
+  // === HERO IMAGE BLOCK (top strip when "Hero Image" visual element is active) ===
+  const hImgH = Math.round(parseInt(h) * 0.30); // 30% of slide height
+  let heroImgBlock = '';
+  if (ve.hero_image && slide.type !== 'cta') {
+    if (state.authorB64) {
+      heroImgBlock = `<div style="width:100%;height:${hImgH}px;overflow:hidden;flex-shrink:0;position:relative;z-index:2">
+        <img src="${state.authorB64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 60%,${bg} 100%)"></div>
+      </div>`;
+    } else {
+      heroImgBlock = `<div style="width:100%;height:${hImgH}px;flex-shrink:0;background:linear-gradient(135deg,${accent}22 0%,${accent}08 100%);display:flex;align-items:center;justify-content:center;border-bottom:1px solid ${accent}25;position:relative;z-index:2">
+        <div style="text-align:center;opacity:.35;user-select:none">
+          <div style="font-size:${Math.round(hImgH*0.3)}px;line-height:1">&#128444;</div>
+          <div style="font-size:9px;font-family:sans-serif;color:${textColor};margin-top:4px;letter-spacing:1px;text-transform:uppercase">Hero Image</div>
+        </div>
+      </div>`;
+    }
+  }
+
   // === CONTENT ===
+  const cPad = heroImgBlock ? '10px 26px 54px' : '24px 26px 54px'; // less top padding when image block above
   let content = '';
 
   if (isHero) {
@@ -2261,7 +2285,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
     if (layout === 'quote') {
       // QUOTE layout: large decorative marks, centered pull-quote
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
           <div style="font-family:Georgia,serif;font-size:72px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-start;padding-left:4px">&ldquo;</div>
           <div style="font-family:'${fh}',sans-serif;font-size:${24*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin:8px 0 16px;font-style:italic;text-align:center">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:center;${bodyTransform}">${bodyHtml}</div>
@@ -2271,7 +2295,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
       // LIST layout: body parsed as bullet points
       const items = (slide.body||'').split('\n').filter(l=>l.trim()).map(l=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px"><span style="color:${accent};font-weight:700;flex-shrink:0">▸</span><span>${escHtml(l.replace(/^[-•*]\s*/,''))}</span></div>`).join('');
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
           ${tagEl}
           <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:900;color:${textColor};line-height:1.1;margin-bottom:16px;text-align:left">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:left;${bodyTransform}">${items||bodyHtml}</div>
@@ -2281,7 +2305,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
       const ha = layout === 'left' ? 'left' : headAlign;
       const ba = layout === 'left' ? 'left' : bodyAlign;
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
           ${tagEl}
           <div style="font-family:'${fh}',sans-serif;font-size:${28*ts}px;font-weight:900;color:${textColor};line-height:1.1;margin-bottom:16px;text-align:${ha}">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.55;text-align:${ba};${bodyTransform}">${bodyHtml}</div>
@@ -2301,7 +2325,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
       </div>` : '';
 
     content = `
-      <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;flex:1;text-align:center">
+      <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;flex:1;text-align:center">
         ${authorBlock}
         <div style="font-family:'${fh}',sans-serif;font-size:${22*ts}px;font-weight:900;color:${textColor};margin-bottom:12px;line-height:1.15;text-align:center">${headingHtml}</div>
         <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};margin-bottom:20px;text-align:center;line-height:1.5;${bodyTransform}">${bodyHtml}</div>
@@ -2313,7 +2337,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
 
     if (layout === 'quote') {
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1;align-items:center;text-align:center">
           <div style="font-family:Georgia,serif;font-size:60px;line-height:.7;color:${accent};opacity:0.4;align-self:flex-start;padding-left:4px">&ldquo;</div>
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};line-height:1.2;margin:8px 0 14px;font-style:italic;text-align:center">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.5;text-align:center;${bodyTransform}">${bodyHtml}</div>
@@ -2322,7 +2346,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
     } else if (layout === 'list') {
       const items = (slide.body||'').split('\n').filter(l=>l.trim()).map(l=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px"><span style="color:${accent};font-weight:700;flex-shrink:0">▸</span><span>${escHtml(l.replace(/^[-•*]\s*/,''))}</span></div>`).join('');
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
           ${numBadge}
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:12px;line-height:1.2;text-align:left">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${12*ss}px;color:${dim};line-height:1.6;text-align:left;${bodyTransform}">${items||bodyHtml}</div>
@@ -2331,7 +2355,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
       const ha = layout === 'left' ? 'left' : headAlign;
       const ba = layout === 'left' ? 'left' : bodyAlign;
       content = `
-        <div style="position:relative;z-index:2;padding:24px 26px 54px;width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
+        <div style="position:relative;z-index:2;padding:${cPad};width:100%;display:flex;flex-direction:column;justify-content:${vaCSS};flex:1">
           ${numBadge}
           <div style="font-family:'${fh}',sans-serif;font-size:${20*ts}px;font-weight:700;color:${textColor};margin-bottom:12px;line-height:1.2;text-align:${ha}">${headingHtml}</div>
           <div class="slide-body-text" style="font-family:'${fb}',sans-serif;font-size:${13*ss}px;color:${dim};line-height:1.6;text-align:${ba};${bodyTransform}">${bodyHtml}</div>
@@ -2342,7 +2366,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
   // Author overlay for non-CTA slides (above progress bar)
   const authorOverlay = (showAuthor && slide.type !== 'cta') ? `<div style="position:absolute;bottom:42px;left:26px;right:26px;z-index:5;display:flex;align-items:center;gap:8px;background:${bg}dd;padding:6px 10px;border-radius:6px"><img src="${state.authorB64}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;object-position:center 20%;border:2px solid ${accent};flex-shrink:0"><div><div style="font-family:'${fb}',sans-serif;font-size:10px;font-weight:600;color:${textColor}">${escHtml(aName)}</div>${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:8px;color:${dim}">${escHtml(aTitle)}</div>` : ''}</div></div>` : '';
 
-  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;flex-direction:column;border-radius:4px">${imgTag}${accentBar}${logoHtml}${arrowHtml}${content}${authorOverlay}${progressHtml}${footerHtml}</div>`;
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;flex-direction:column;border-radius:4px">${imgTag}${accentBar}${logoHtml}${arrowHtml}${heroImgBlock}${content}${authorOverlay}${progressHtml}${footerHtml}</div>`;
 }
 
 // Capture a slide HTML element to PNG base64 via html2canvas
@@ -2401,7 +2425,11 @@ function renderPreview() {
     // Only replace the outermost container dimensions (first occurrence)
     let slideHtml = getSlideHTML(slide, i);
     slideHtml = slideHtml.replace(/width:\d+px/, 'width:100%').replace(/height:\d+px/, 'height:100%');
-    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + slideHtml;
+    const isGenerating = div.dataset.generating === 'true';
+    div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + slideHtml +
+      `<div class="slide-regen-overlay">
+        <button class="slide-regen-btn" onclick="event.stopPropagation();regenSlide(${i})">&#x21bb; Rigenera</button>
+       </div>`;
     div.onclick = () => openLightbox(i);
     grid.appendChild(div);
   });
@@ -2477,6 +2505,28 @@ function openLightbox(idx) {
       </div>
       ${(curBg||curText||curAccent||curDim) ? `<button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="clearSlideColors(${idx})">Reset globali</button>` : ''}
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+      <label class="form-label">Allineamento testo (questa slide)</label>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px">Headline</div>
+          <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+            <button class="align-btn${(slide._headAlign||headAlign)==='left'?' active':''}" onclick="setSlideHeadAlign(${idx},'left',this)">&#8592; Sin</button>
+            <button class="align-btn${(slide._headAlign||headAlign)==='center'?' active':''}" onclick="setSlideHeadAlign(${idx},'center',this)">&#8596; Cen</button>
+            <button class="align-btn${(slide._headAlign||headAlign)==='right'?' active':''}" onclick="setSlideHeadAlign(${idx},'right',this)">Des &#8594;</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px">Body</div>
+          <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+            <button class="align-btn${(slide._bodyAlign||bodyAlign)==='left'?' active':''}" onclick="setSlideBodyAlign(${idx},'left',this)">&#8592; Sin</button>
+            <button class="align-btn${(slide._bodyAlign||bodyAlign)==='center'?' active':''}" onclick="setSlideBodyAlign(${idx},'center',this)">&#8596; Cen</button>
+            <button class="align-btn${(slide._bodyAlign||bodyAlign)==='right'?' active':''}" onclick="setSlideBodyAlign(${idx},'right',this)">Des &#8594;</button>
+          </div>
+        </div>
+      </div>
+      ${(slide._headAlign||slide._bodyAlign) ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="clearSlideAligns(${idx})">&#x21bb; Reset</button>` : ''}
+    </div>
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="btn btn-primary" onclick="closeLightbox()">Applica</button>
     </div>`;
@@ -2508,6 +2558,29 @@ function clearSlideColors(idx) {
   const slide = state.currentCopy?.slides?.[idx];
   if (!slide) return;
   delete slide._colorOverrides;
+  openLightbox(idx);
+}
+function setSlideHeadAlign(idx, align, btn) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  slide._headAlign = align;
+  btn.closest('[style]').querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshLightboxSlide(idx);
+}
+function setSlideBodyAlign(idx, align, btn) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  slide._bodyAlign = align;
+  btn.closest('[style]').querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshLightboxSlide(idx);
+}
+function clearSlideAligns(idx) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  delete slide._headAlign;
+  delete slide._bodyAlign;
   openLightbox(idx);
 }
 function setSlideVAlign(idx, va, btn) {
