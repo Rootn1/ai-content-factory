@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """AI Content Factory — FastAPI backend."""
 
-import os, sys, re, json, base64, io, zipfile, traceback
+import os, sys, re, json, base64, io, zipfile, traceback, logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
@@ -154,12 +157,11 @@ async def research_keyword(keyword: str) -> dict:
 # ---------------------------------------------------------------------------
 BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "it-IT,it;q=0.9,en;q=0.7",
     "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
 }
+FETCH_MIN_CHARS = 150  # minimum meaningful content length
 
 
 def _extract_text_from_html(html: str) -> str:
@@ -207,87 +209,60 @@ async def _fetch_direct(url: str) -> tuple[str, list]:
 
 
 async def fetch_url(url: str) -> str:
-    # Try Jina first, fallback to direct
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown"})
-            if r.is_success and len(r.text.strip()) > 200:
-                return r.text[:15000]
-    except Exception:
-        pass
-    text, _ = await _fetch_direct(url)
-    return text
+    result = await fetch_url_with_images(url)
+    return result["content"]
 
 
 async def fetch_url_with_images(url: str) -> dict:
-    """Fetch URL content — tries Jina first, falls back to direct HTTP fetch."""
-    import asyncio
+    """Fetch URL — tries Jina, then direct HTTP, then Claude web_search."""
+    content, images, screenshot_b64 = "", [], ""
 
-    content = ""
-    images = []
-    screenshot_b64 = ""
-
-    async def _fetch_jina_markdown(client):
-        try:
-            r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown"})
-            if not r.is_success or len(r.text.strip()) < 200:
-                return "", []
-            text = r.text[:15000]
-            imgs = []
-            for m in re.compile(r'!\[([^\]]*)\]\(([^)]+)\)').finditer(r.text):
-                alt, img_url = m.group(1), m.group(2)
-                if img_url and not img_url.startswith('data:'):
-                    imgs.append({"url": img_url, "alt": alt})
-            for m in re.compile(r'<img[^>]+src=["\']([^"\']+)["\']').finditer(r.text):
-                img_url = m.group(1)
-                if img_url and not img_url.startswith('data:') and not any(i['url'] == img_url for i in imgs):
-                    imgs.append({"url": img_url, "alt": ""})
-            return text, imgs
-        except Exception:
-            return "", []
-
-    async def _fetch_screenshot(client):
-        try:
-            rs = await client.get(f"https://r.jina.ai/{url}", headers={"x-respond-with": "screenshot"})
-            if not rs.is_success:
-                return ""
-            scr_url = rs.text.strip()
-            if not scr_url:
-                return ""
-            r = await client.get(scr_url)
-            if r.is_success and r.headers.get("content-type", "").startswith("image"):
-                return base64.b64encode(r.content).decode()
-        except Exception:
-            pass
-        return ""
-
-    # Try Jina + screenshot in parallel
+    # ── Step 1: Jina reader ──
     try:
-        async with httpx.AsyncClient(timeout=25) as client:
-            (jina_content, jina_images), screenshot_b64 = await asyncio.gather(
-                _fetch_jina_markdown(client),
-                _fetch_screenshot(client),
-            )
-        content, images = jina_content, jina_images
-    except Exception:
-        pass
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.get(f"https://r.jina.ai/{url}", headers={"Accept": "text/markdown", "X-No-Cache": "true"})
+            logger.info(f"Jina status={r.status_code} len={len(r.text)} url={url}")
+            if r.is_success and len(r.text.strip()) >= FETCH_MIN_CHARS:
+                content = r.text[:15000]
+                for m in re.compile(r'!\[([^\]]*)\]\(([^)]+)\)').finditer(r.text):
+                    alt, img_url = m.group(1), m.group(2)
+                    if img_url and not img_url.startswith('data:'):
+                        images.append({"url": img_url, "alt": alt})
+    except Exception as e:
+        logger.warning(f"Jina fetch failed: {e}")
 
-    # Fallback 2: direct HTTP fetch
-    if len(content.strip()) < 200:
+    # ── Step 2: Jina screenshot (parallel-safe, separate client) ──
+    if content:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=8.0)) as client:
+                rs = await client.get(f"https://r.jina.ai/{url}", headers={"x-respond-with": "screenshot"})
+                if rs.is_success:
+                    scr_url = rs.text.strip()
+                    if scr_url.startswith("http"):
+                        ri = await client.get(scr_url)
+                        if ri.is_success and ri.headers.get("content-type", "").startswith("image"):
+                            screenshot_b64 = base64.b64encode(ri.content).decode()
+                            logger.info("Screenshot captured via Jina")
+        except Exception as e:
+            logger.warning(f"Jina screenshot failed: {e}")
+
+    # ── Step 3: Direct HTTP fetch ──
+    if len(content.strip()) < FETCH_MIN_CHARS:
+        logger.info(f"Jina insufficient, trying direct fetch for {url}")
         content, images = await _fetch_direct(url)
 
-    # Fallback 3: Claude web_search tool (when server IP is blocked)
-    if len(content.strip()) < 200:
+    # ── Step 4: Claude web_search (when server IP is blocked) ──
+    if len(content.strip()) < FETCH_MIN_CHARS:
+        logger.info(f"Direct fetch insufficient, trying Claude web_search for {url}")
         content = await _fetch_via_claude_websearch(url)
+        logger.info(f"Claude web_search result len={len(content)}")
 
     return {"content": content, "images": images[:20], "screenshot_b64": screenshot_b64}
 
 
 async def _fetch_via_claude_websearch(url: str) -> str:
-    """Last-resort fallback: ask Claude to search and retrieve brand info via web_search tool."""
-    from urllib.parse import urlparse
-    domain = urlparse(url).netloc or url
-    headers = {
+    """Fallback: Claude web_search tool to get brand info when direct fetch is blocked."""
+    api_headers = {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "web-search-2025-03-05",
@@ -300,32 +275,25 @@ async def _fetch_via_claude_websearch(url: str) -> str:
         "messages": [{
             "role": "user",
             "content": (
-                f"Cerca e analizza il sito {url}. "
-                f"Estrai queste informazioni: "
-                f"1) Nicchia/settore del brand "
-                f"2) Nome del brand e del fondatore/autore "
-                f"3) Cosa offre (prodotti/servizi) "
-                f"4) Target audience "
-                f"5) Tono di comunicazione "
-                f"6) USP (unique selling proposition) "
-                f"7) Handle Instagram se presente "
-                f"Fornisci una descrizione dettagliata basata su ciò che trovi."
+                f"Cerca informazioni complete sul sito {url} e sul brand. "
+                f"Trova: nome brand, fondatore/autore, nicchia/settore, prodotti/servizi offerti, "
+                f"target audience, tono comunicativo, USP, handle Instagram. "
+                f"Fornisci una descrizione dettagliata di tutto ciò che trovi."
             )
         }]
     }
     try:
-        async with httpx.AsyncClient(timeout=40) as client:
-            r = await client.post("https://api.anthropic.com/v1/messages", json=body, headers=headers)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
+            r = await client.post("https://api.anthropic.com/v1/messages", json=body, headers=api_headers)
+            logger.info(f"Claude web_search status={r.status_code}")
             if r.status_code != 200:
+                logger.warning(f"Claude web_search error: {r.text[:200]}")
                 return ""
             data = r.json()
-            # Collect all text blocks from the response (including tool result text)
-            texts = []
-            for block in data.get("content", []):
-                if block.get("type") == "text":
-                    texts.append(block["text"])
+            texts = [b["text"] for b in data.get("content", []) if b.get("type") == "text"]
             return "\n\n".join(texts)[:15000]
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Claude web_search exception: {e}")
         return ""
 
 
