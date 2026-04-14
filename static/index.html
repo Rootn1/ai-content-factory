@@ -583,17 +583,27 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
       <!-- C) Color Palette -->
       <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
         <label class="form-label">Palette Colori</label>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="toggle-btn" id="palTabBrand" onclick="showPaletteTab('brand',this)">Brand</button>
-          <button class="toggle-btn" onclick="showPaletteTab('dark',this)">Preset Dark</button>
-          <button class="toggle-btn" onclick="showPaletteTab('light',this)">Preset Light</button>
-          <button class="toggle-btn" onclick="showPaletteTab('custom',this)">Personalizza</button>
+
+        <!-- 5 named role slots — always visible, always editable -->
+        <div id="paletteSlots" style="display:flex;gap:6px;margin-bottom:12px"></div>
+
+        <!-- Preset Dark -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Preset Dark</div>
+          <div class="palette-presets" id="palPresetsD"></div>
         </div>
-        <div id="palettePresetsArea"></div>
-        <div class="palette-row" id="paletteRow" style="margin-top:10px"></div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-sm btn-secondary" onclick="addColor()">+ Colore</button>
-          <button class="btn btn-sm btn-secondary" id="btnRetryPalette" style="display:none" onclick="retryExtractPalette()">&#x21bb; Riestrai</button>
+        <!-- Preset Light -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Preset Light</div>
+          <div class="palette-presets" id="palPresetsL"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text)">
+            <input type="checkbox" id="chkAlternate" onchange="state.alternateSlides=this.checked;renderPreview()">
+            Alterna sfondo alt tra slide
+          </label>
+          <button class="btn btn-sm btn-secondary" id="btnRetryPalette" style="display:none" onclick="retryExtractPalette()">&#x21bb; Riestrai da URL</button>
         </div>
         <div class="form-group" style="margin-top:10px">
           <div class="drop-area" id="dropPalette" ondrop="handlePaletteDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="if(!state.paletteImage)document.getElementById('paletteFileInput').click()" style="padding:16px">
@@ -888,76 +898,122 @@ function removeTag(i) {
 const ROLE_LABELS = {background:'Sfondo',text:'Testo',accent:'Accento',secondary:'Sfondo Alt',dim:'Testo Dim'};
 const ROLE_ORDER = ['background','text','accent','secondary','dim'];
 
-// Sync colorRoles from colors array (best-guess assignment)
-function syncRolesFromColors() {
-  const c = state.colors;
-  if (!c.length) { state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''}; return; }
-  // If roles already set and match, keep them
-  const existing = Object.values(state.colorRoles).filter(Boolean);
-  if (existing.length >= 3) return;
-  // Auto-assign: detect luminance to guess bg vs text
-  function lum(hex) {
-    const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
-    return 0.299*r + 0.587*g + 0.114*b;
-  }
-  const sorted = c.map((hex,i)=>({hex,i,l:lum(hex)})).sort((a,b)=>a.l-b.l);
-  // Darkest = background, lightest = text, middle = accent
-  state.colorRoles.background = sorted[0].hex;
-  state.colorRoles.text = sorted[sorted.length-1].hex;
-  state.colorRoles.accent = sorted[Math.min(2, sorted.length-1)]?.hex || sorted[0].hex;
-  state.colorRoles.secondary = sorted[Math.min(1, sorted.length-1)]?.hex || sorted[0].hex;
-  state.colorRoles.dim = sorted[Math.max(0, sorted.length-2)]?.hex || sorted[sorted.length-1].hex;
+// Render the 5 labeled color slots (always visible in design panel)
+function renderPaletteSlots() {
+  const slots = document.getElementById('paletteSlots');
+  if (!slots) return;
+  const cr = state.colorRoles;
+  slots.innerHTML = ROLE_ORDER.map(role => {
+    const hex = cr[role] || '#444444';
+    return `
+      <div style="flex:1;min-width:0;text-align:center">
+        <div style="width:100%;aspect-ratio:1;border-radius:8px;background:${hex};border:2px solid var(--border);cursor:pointer;box-sizing:border-box;margin:0 auto;max-width:48px"
+             onclick="editRoleColor('${role}')" title="Modifica ${ROLE_LABELS[role]}"></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ROLE_LABELS[role]}</div>
+        <div style="font-size:8px;color:var(--text-dim);opacity:.6">${hex}</div>
+      </div>`;
+  }).join('');
 }
 
-// Set roles from API response (array of {hex, role})
-function setColorsFromAPI(colorsArr) {
-  if (!colorsArr?.length) return;
-  // Check if objects with roles
-  if (typeof colorsArr[0] === 'object' && colorsArr[0].hex) {
-    state.colors = colorsArr.map(c => c.hex);
-    state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''};
-    colorsArr.forEach(c => {
-      if (c.role && ROLE_ORDER.includes(c.role)) state.colorRoles[c.role] = c.hex;
-    });
-    // Fill any missing roles
-    const assigned = new Set(Object.values(state.colorRoles).filter(Boolean));
-    const unassigned = state.colors.filter(c => !assigned.has(c));
-    ROLE_ORDER.forEach(role => {
-      if (!state.colorRoles[role] && unassigned.length) state.colorRoles[role] = unassigned.shift();
-    });
-  } else {
-    // Plain hex array
-    state.colors = [...colorsArr];
-    state.colorRoles = {background:'',text:'',accent:'',secondary:'',dim:''};
-    syncRolesFromColors();
-  }
-}
-
-function renderPalette() {
-  const row = document.getElementById('paletteRow');
-  row.innerHTML = '';
-  if (!state.colors.length) {
-    row.innerHTML = '<span style="font-size:12px;color:var(--text-dim)">Nessun colore — verrà estratto automaticamente dalla URL o aggiungilo manualmente</span>';
-    return;
-  }
-  state.colors.forEach((c, i) => {
-    const role = ROLE_ORDER.find(r => state.colorRoles[r] === c) || '';
-    const div = document.createElement('div');
-    div.style.textAlign = 'center';
-    div.innerHTML = `<div class="color-swatch" style="background:${c}" onclick="editColor(${i})"></div><div class="color-hex">${c}</div>${role ? `<div style="font-size:9px;color:var(--text-dim);margin-top:2px">${ROLE_LABELS[role]||role}</div>` : ''}`;
-    row.appendChild(div);
-  });
-}
-function addColor() {
-  state.colors.push('#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'));
-  renderPalette();
-}
-function editColor(i) {
+// Click a slot to change its color
+function editRoleColor(role) {
   const input = document.createElement('input');
   input.type = 'color';
-  input.value = state.colors[i];
-  input.onchange = () => { const old = state.colors[i]; state.colors[i] = input.value; ROLE_ORDER.forEach(r => { if(state.colorRoles[r]===old) state.colorRoles[r]=input.value; }); renderPalette(); };
+  input.value = state.colorRoles[role] || '#000000';
+  input.oninput = () => {
+    state.colorRoles[role] = input.value;
+    state.colors = ROLE_ORDER.map(r => state.colorRoles[r] || '');
+    renderPaletteSlots();
+    renderPreview();
+  };
   input.click();
+}
+
+// Render preset cards (dark + light rows)
+function renderPalettePresets() {
+  ['dark','light'].forEach(type => {
+    const el = document.getElementById(type === 'dark' ? 'palPresetsD' : 'palPresetsL');
+    if (!el) return;
+    el.innerHTML = PALETTE_PRESETS[type].map((p, i) => {
+      const isActive = state.design.palette === type + i;
+      return `<div class="palette-preset${isActive ? ' active' : ''}" onclick="selectPreset('${type}',${i})">
+        <div class="palette-preset-colors">
+          <span style="background:${p.background}"></span>
+          <span style="background:${p.text}"></span>
+          <span style="background:${p.accent}"></span>
+          <span style="background:${p.secondary}"></span>
+          <span style="background:${p.dim}"></span>
+        </div>
+        <div class="palette-preset-name">${p.name}</div>
+      </div>`;
+    }).join('');
+  });
+}
+
+// Select a preset — directly assigns all 5 roles (no heuristics needed)
+function selectPreset(type, idx) {
+  const p = PALETTE_PRESETS[type][idx];
+  state.design.palette = type + idx;
+  state.colorRoles = {
+    background: p.background,
+    text:       p.text,
+    accent:     p.accent,
+    secondary:  p.secondary,
+    dim:        p.dim,
+  };
+  state.colors = ROLE_ORDER.map(r => state.colorRoles[r]);
+  renderPaletteSlots();
+  renderPalettePresets();
+  renderPreview();
+}
+
+// Set roles from API response (array of {hex, role} or plain hex strings)
+function setColorsFromAPI(colorsArr) {
+  if (!colorsArr?.length) return;
+  const newRoles = {background:'',text:'',accent:'',secondary:'',dim:''};
+  if (typeof colorsArr[0] === 'object' && colorsArr[0].hex) {
+    colorsArr.forEach(c => {
+      if (c.role && ROLE_ORDER.includes(c.role)) newRoles[c.role] = c.hex;
+    });
+    // Fill any missing roles from unassigned colors
+    const allHex = colorsArr.map(c => c.hex);
+    const used = new Set(Object.values(newRoles).filter(Boolean));
+    const spare = allHex.filter(h => !used.has(h));
+    ROLE_ORDER.forEach(role => { if (!newRoles[role] && spare.length) newRoles[role] = spare.shift(); });
+  } else {
+    // Plain hex array — auto-assign by luminance + saturation
+    const arr = colorsArr.map(c => typeof c === 'string' ? c : c.hex).filter(Boolean);
+    function lum(hex) {
+      if (!hex || hex.length < 7) return 0;
+      const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+      return 0.299*r + 0.587*g + 0.114*b;
+    }
+    function sat(hex) {
+      if (!hex || hex.length < 7) return 0;
+      const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      return mx === 0 ? 0 : (mx-mn)/mx;
+    }
+    const byLum = [...arr].map(h=>({h,l:lum(h),s:sat(h)})).sort((a,b)=>a.l-b.l);
+    newRoles.background = byLum[0].h;
+    newRoles.text = byLum[byLum.length-1].h;
+    const mid = byLum.slice(1, -1);
+    const accentEl = mid.slice().sort((a,b)=>b.s-a.s)[0];
+    newRoles.accent = accentEl ? accentEl.h : (byLum[1]?.h || byLum[0].h);
+    const usedSet = new Set([newRoles.background, newRoles.text, newRoles.accent]);
+    const leftovers = arr.filter(h => !usedSet.has(h));
+    newRoles.secondary = leftovers[0] || newRoles.background;
+    newRoles.dim = leftovers[1] || newRoles.text;
+  }
+  state.colorRoles = newRoles;
+  state.colors = ROLE_ORDER.map(r => newRoles[r] || '');
+  state.design.palette = 'brand'; // clear preset selection
+}
+
+// Legacy alias called throughout the app
+function renderPalette() {
+  renderPaletteSlots();
+  renderPalettePresets();
 }
 
 // =================================================================
@@ -1815,24 +1871,25 @@ function setAspect(ratio, btn) {
 // =================================================================
 // DESIGN BLOCK
 // =================================================================
+// Each preset has explicit named roles: background, text, accent, secondary, dim
 const PALETTE_PRESETS = {
   dark: [
-    {name:'Luxury Beige',colors:['#2c2420','#d4a574','#f5e6d3','#8b6914','#1a1410']},
-    {name:'Soft Feminine',colors:['#1a1218','#c77dba','#f0d6ec','#8b4789','#2d1f2b']},
-    {name:'Bold Contrast',colors:['#0a0a0a','#ff4500','#ffffff','#333333','#ff6b35']},
-    {name:'Minimal B&W',colors:['#0a0a0a','#ffffff','#888888','#333333','#cccccc']},
-    {name:'Digital Neon',colors:['#0a0a14','#00ff88','#ff00ff','#0088ff','#1a1a2e']},
-    {name:'Midnight Purple',colors:['#0d0a1a','#7c3aed','#a78bfa','#1e1b4b','#c4b5fd']},
-    {name:'Deep Ocean',colors:['#0a1628','#0ea5e9','#38bdf8','#164e63','#7dd3fc']},
+    {name:'Luxury Beige',  background:'#2c2420',text:'#f5e6d3',accent:'#d4a574',secondary:'#1a1410',dim:'#8b6914'},
+    {name:'Soft Feminine', background:'#1a1218',text:'#f0d6ec',accent:'#c77dba',secondary:'#2d1f2b',dim:'#8b4789'},
+    {name:'Bold Contrast', background:'#0a0a0a',text:'#ffffff', accent:'#ff4500',secondary:'#333333',dim:'#ff6b35'},
+    {name:'Minimal B&W',   background:'#0a0a0a',text:'#ffffff', accent:'#888888',secondary:'#333333',dim:'#cccccc'},
+    {name:'Digital Neon',  background:'#0a0a14',text:'#e0ffe8', accent:'#00ff88',secondary:'#1a1a2e',dim:'#0088ff'},
+    {name:'Midnight Purple',background:'#0d0a1a',text:'#c4b5fd',accent:'#7c3aed',secondary:'#1e1b4b',dim:'#a78bfa'},
+    {name:'Deep Ocean',    background:'#0a1628',text:'#7dd3fc', accent:'#0ea5e9',secondary:'#164e63',dim:'#38bdf8'},
   ],
   light: [
-    {name:'Warm Neutral',colors:['#faf8f5','#8b7355','#d4c5a9','#3d3328','#f0ead6']},
-    {name:'Cool Gray',colors:['#f8f9fa','#6b7280','#374151','#e5e7eb','#111827']},
-    {name:'Sage Green',colors:['#f0f5f0','#4a7c59','#8fbc8f','#2d5016','#e8f0e8']},
-    {name:'Warm Coral',colors:['#fff5f5','#e74c3c','#f1948a','#922b21','#fadbd8']},
-    {name:'Soft Lavender',colors:['#f5f3ff','#7c3aed','#a78bfa','#4c1d95','#ede9fe']},
-    {name:'Clean White',colors:['#ffffff','#1a1a1a','#666666','#f0f0f0','#333333']},
-    {name:'Sky Blue',colors:['#f0f9ff','#0284c7','#38bdf8','#0c4a6e','#e0f2fe']},
+    {name:'Warm Neutral',  background:'#faf8f5',text:'#3d3328',accent:'#8b7355',secondary:'#f0ead6',dim:'#d4c5a9'},
+    {name:'Cool Gray',     background:'#f8f9fa',text:'#111827',accent:'#6b7280',secondary:'#e5e7eb',dim:'#374151'},
+    {name:'Sage Green',    background:'#f0f5f0',text:'#2d5016',accent:'#4a7c59',secondary:'#e8f0e8',dim:'#8fbc8f'},
+    {name:'Warm Coral',    background:'#fff5f5',text:'#922b21',accent:'#e74c3c',secondary:'#fadbd8',dim:'#f1948a'},
+    {name:'Soft Lavender', background:'#f5f3ff',text:'#4c1d95',accent:'#7c3aed',secondary:'#ede9fe',dim:'#a78bfa'},
+    {name:'Clean White',   background:'#ffffff', text:'#1a1a1a',accent:'#555555',secondary:'#f0f0f0',dim:'#888888'},
+    {name:'Sky Blue',      background:'#f0f9ff',text:'#0c4a6e',accent:'#0284c7',secondary:'#e0f2fe',dim:'#38bdf8'},
   ]
 };
 
@@ -1849,102 +1906,6 @@ const FONT_PRESETS = [
 
 const LAYOUTS = ['Centered','Left','Quote','List'];
 
-function showPaletteTab(tab, btn) {
-  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const area = document.getElementById('palettePresetsArea');
-  if (tab === 'brand') {
-    if (state.colors.length) {
-      const roleOptions = (currentRole, hex) => ROLE_ORDER.map(r =>
-        `<option value="${r}" ${state.colorRoles[r]===hex?'selected':''}>${ROLE_LABELS[r]}</option>`
-      ).join('');
-      area.innerHTML = `
-        <div style="margin-top:8px">
-          <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-            ${state.colors.map((c, i) => `
-              <div style="text-align:center;min-width:60px">
-                <div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div>
-                <div class="color-hex">${c}</div>
-                <select class="role-select" onchange="assignRole(this.value,'${c}')" style="font-size:10px;margin-top:4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px;width:72px">
-                  <option value="">—</option>
-                  ${roleOptions('',c)}
-                </select>
-              </div>`).join('')}
-          </div>
-          <p class="form-hint" style="margin-top:8px">Clicca sul colore per cambiarlo — usa il menu per assegnare il ruolo</p>
-          <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text)">
-              <input type="checkbox" id="chkAlternate" ${state.alternateSlides?'checked':''} onchange="state.alternateSlides=this.checked;renderPreview()">
-              Alterna sfondo e sfondo alt tra le slide
-            </label>
-          </div>
-        </div>`;
-    } else {
-      area.innerHTML = '<p class="form-hint" style="margin-top:8px">Nessuna palette brand definita. Torna alla fase 1 per importare da URL o immagine.</p>';
-    }
-    return;
-  }
-  if (tab === 'custom') {
-    area.innerHTML = '<div class="palette-row" id="labPalette" style="margin-top:8px"></div><button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addLabColor()">+ Colore</button>';
-    renderLabPalette();
-    return;
-  }
-  const presets = PALETTE_PRESETS[tab] || [];
-  area.innerHTML = '<div class="palette-presets">' + presets.map((p, i) => `
-    <div class="palette-preset${state.design.palette===tab+i?' active':''}" onclick="selectPalette('${tab}',${i})">
-      <div class="palette-preset-colors">${p.colors.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
-      <div class="palette-preset-name">${p.name}</div>
-    </div>`).join('') + '</div>';
-}
-
-function assignRole(role, hex) {
-  if (!role) return;
-  // Remove this role from any other color
-  ROLE_ORDER.forEach(r => { if (state.colorRoles[r] === hex) state.colorRoles[r] = ''; });
-  // If another color had this role, swap
-  const oldHex = state.colorRoles[role];
-  state.colorRoles[role] = hex;
-  // Refresh the Brand tab UI
-  showPaletteTab('brand', document.getElementById('palTabBrand'));
-  renderPreview();
-}
-
-function selectPalette(tab, idx) {
-  state.design.palette = tab + idx;
-  state.colors = [...PALETTE_PRESETS[tab][idx].colors];
-  syncRolesFromColors();
-  document.querySelectorAll('.palette-preset').forEach(p => p.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  renderPreview();
-}
-
-function renderLabPalette() {
-  const row = document.getElementById('labPalette');
-  if (!row) return;
-  row.innerHTML = state.colors.map((c, i) => `
-    <div style="text-align:center">
-      <div class="color-swatch" style="background:${c}" onclick="editLabColor(${i})"></div>
-      <div class="color-hex">${c}</div>
-    </div>`).join('');
-}
-function editLabColor(i) {
-  const input = document.createElement('input');
-  input.type = 'color'; input.value = state.colors[i];
-  input.onchange = () => {
-    const oldHex = state.colors[i];
-    state.colors[i] = input.value;
-    // Update role reference
-    ROLE_ORDER.forEach(r => { if (state.colorRoles[r] === oldHex) state.colorRoles[r] = input.value; });
-    renderLabPalette();
-    showPaletteTab('brand', document.getElementById('palTabBrand'));
-    renderPreview();
-  };
-  input.click();
-}
-function addLabColor() {
-  state.colors.push('#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'));
-  renderLabPalette();
-}
 
 // Extract a clean short font name from a possibly long description
 function cleanFontName(raw) {
@@ -2009,12 +1970,11 @@ function initDesignBlock() {
 
   updateActiveFontDisplay();
 
-  // Default palette tab — show brand palette if available
-  if (state.colors.length) {
-    showPaletteTab('brand', document.getElementById('palTabBrand'));
-  } else {
-    showPaletteTab('dark', document.querySelector('#sec-lab .toggle-btn:nth-child(2)'));
-  }
+  // Palette: render slots + presets
+  renderPaletteSlots();
+  renderPalettePresets();
+  const chk = document.getElementById('chkAlternate');
+  if (chk) chk.checked = !!state.alternateSlides;
 }
 
 function selectFont(idx, el) {
@@ -3029,7 +2989,6 @@ async function loadProject(slug) {
     state.pillars = (data.pillars?.pillars) || data.pillars || [];
     state.calendar = data.calendar?.entries || [];
     if (state.brand.colors?.length) setColorsFromAPI(state.brand.colors);
-    else syncRolesFromColors();
     state.keywords = state.brand.keywords || [];
 
     // Fill form
