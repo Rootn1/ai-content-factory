@@ -272,11 +272,61 @@ async def fetch_url_with_images(url: str) -> dict:
     except Exception:
         pass
 
-    # If Jina returned too little content, fallback to direct fetch
+    # Fallback 2: direct HTTP fetch
     if len(content.strip()) < 200:
         content, images = await _fetch_direct(url)
 
+    # Fallback 3: Claude web_search tool (when server IP is blocked)
+    if len(content.strip()) < 200:
+        content = await _fetch_via_claude_websearch(url)
+
     return {"content": content, "images": images[:20], "screenshot_b64": screenshot_b64}
+
+
+async def _fetch_via_claude_websearch(url: str) -> str:
+    """Last-resort fallback: ask Claude to search and retrieve brand info via web_search tool."""
+    from urllib.parse import urlparse
+    domain = urlparse(url).netloc or url
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "web-search-2025-03-05",
+        "content-type": "application/json",
+    }
+    body = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 2000,
+        "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+        "messages": [{
+            "role": "user",
+            "content": (
+                f"Cerca e analizza il sito {url}. "
+                f"Estrai queste informazioni: "
+                f"1) Nicchia/settore del brand "
+                f"2) Nome del brand e del fondatore/autore "
+                f"3) Cosa offre (prodotti/servizi) "
+                f"4) Target audience "
+                f"5) Tono di comunicazione "
+                f"6) USP (unique selling proposition) "
+                f"7) Handle Instagram se presente "
+                f"Fornisci una descrizione dettagliata basata su ciò che trovi."
+            )
+        }]
+    }
+    try:
+        async with httpx.AsyncClient(timeout=40) as client:
+            r = await client.post("https://api.anthropic.com/v1/messages", json=body, headers=headers)
+            if r.status_code != 200:
+                return ""
+            data = r.json()
+            # Collect all text blocks from the response (including tool result text)
+            texts = []
+            for block in data.get("content", []):
+                if block.get("type") == "text":
+                    texts.append(block["text"])
+            return "\n\n".join(texts)[:15000]
+    except Exception:
+        return ""
 
 
 # ---------------------------------------------------------------------------
