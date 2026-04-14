@@ -251,13 +251,37 @@ async def fetch_url_with_images(url: str) -> dict:
         logger.info(f"Jina insufficient, trying direct fetch for {url}")
         content, images = await _fetch_direct(url)
 
-    # ── Step 4: Claude web_search (when server IP is blocked) ──
+    # ── Step 4: Jina search API ──
     if len(content.strip()) < FETCH_MIN_CHARS:
-        logger.info(f"Direct fetch insufficient, trying Claude web_search for {url}")
+        logger.info(f"Direct fetch insufficient, trying Jina search for {url}")
+        content = await _fetch_via_jina_search(url)
+
+    # ── Step 5: Claude web_search (most reliable, uses Anthropic infra) ──
+    if len(content.strip()) < FETCH_MIN_CHARS:
+        logger.info(f"Jina search insufficient, trying Claude web_search for {url}")
         content = await _fetch_via_claude_websearch(url)
         logger.info(f"Claude web_search result len={len(content)}")
 
     return {"content": content, "images": images[:20], "screenshot_b64": screenshot_b64}
+
+
+async def _fetch_via_jina_search(url: str) -> str:
+    """Fallback: Jina search API to find content about a domain."""
+    from urllib.parse import urlparse
+    domain = urlparse(url).netloc or url
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            search_q = f"site:{domain} OR {domain}"
+            r = await client.get(
+                f"https://s.jina.ai/{search_q}",
+                headers={"Accept": "text/markdown", "X-No-Cache": "true"},
+            )
+            logger.info(f"Jina search status={r.status_code} len={len(r.text)} q={search_q}")
+            if r.is_success and len(r.text.strip()) >= FETCH_MIN_CHARS:
+                return r.text[:15000]
+    except Exception as e:
+        logger.warning(f"Jina search failed: {e}")
+    return ""
 
 
 async def _fetch_via_claude_websearch(url: str) -> str:
@@ -269,7 +293,7 @@ async def _fetch_via_claude_websearch(url: str) -> str:
         "content-type": "application/json",
     }
     body = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": "claude-sonnet-4-5",
         "max_tokens": 2000,
         "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
         "messages": [{
@@ -283,15 +307,17 @@ async def _fetch_via_claude_websearch(url: str) -> str:
         }]
     }
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
             r = await client.post("https://api.anthropic.com/v1/messages", json=body, headers=api_headers)
             logger.info(f"Claude web_search status={r.status_code}")
             if r.status_code != 200:
-                logger.warning(f"Claude web_search error: {r.text[:200]}")
+                logger.warning(f"Claude web_search error: {r.text[:300]}")
                 return ""
             data = r.json()
             texts = [b["text"] for b in data.get("content", []) if b.get("type") == "text"]
-            return "\n\n".join(texts)[:15000]
+            result = "\n\n".join(texts)[:15000]
+            logger.info(f"Claude web_search returned {len(result)} chars")
+            return result
     except Exception as e:
         logger.warning(f"Claude web_search exception: {e}")
         return ""
@@ -317,13 +343,15 @@ async def fetch_url_endpoint(request: Request):
     if not url:
         raise HTTPException(400, "URL richiesta")
 
-    # Fetch content + images + screenshot via Jina (parallel)
+    # Fetch content + images + screenshot via Jina (with fallbacks)
+    logger.info(f"fetch-url request: {url}")
     fetched = await fetch_url_with_images(url)
     content = fetched["content"]
     site_images = fetched["images"]
     screenshot_b64 = fetched.get("screenshot_b64", "")
+    logger.info(f"fetch-url final content len={len(content)} images={len(site_images)} for {url}")
     if not content:
-        raise HTTPException(400, "Impossibile leggere il contenuto della URL")
+        raise HTTPException(400, "Impossibile leggere il contenuto della URL. Prova a inserire le informazioni manualmente.")
 
     system = """Sei un esperto di brand strategy. Analizza il contenuto di questa pagina web e estrai tutte le informazioni utili per un brand brief.
 Rispondi SOLO con JSON valido, senza markdown fences.
