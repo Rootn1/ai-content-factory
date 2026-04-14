@@ -1940,8 +1940,8 @@ function renderFontGrid() {
   if (ef?.heading || ef?.body) {
     const hDisplay = cleanFontName(ef.heading);
     const bDisplay = cleanFontName(ef.body);
-    const isActive = state.design.fontHeading === ef.heading && state.design.fontBody === ef.body;
-    cards += `<div class="font-preset${isActive?' active':''}" onclick="selectExtractedFont(this)" style="${isActive?'border-color:var(--accent);background:var(--accent)08':''}">
+    const isActive = state.design.fontHeading === hDisplay && state.design.fontBody === bDisplay;
+    cards += `<div class="font-preset${isActive?' active':''}" onclick="selectExtractedFont(this)">
       <div style="font-size:9px;color:var(--accent);font-weight:600;letter-spacing:.5px;margin-bottom:3px">&#127760; DAL SITO</div>
       <div class="font-preset-heading" style="font-family:'${hDisplay}',sans-serif">${hDisplay}</div>
       <div class="font-preset-body" style="font-family:'${bDisplay}',sans-serif">${bDisplay}</div>
@@ -1951,7 +1951,7 @@ function renderFontGrid() {
   cards += FONT_PRESETS.map((f, i) => {
     const isActive = !ef && state.design.fontHeading === f.heading && state.design.fontBody === f.body;
     // If extracted font is active, don't mark any preset as active
-    const efActive = ef && state.design.fontHeading === ef.heading && state.design.fontBody === ef.body;
+    const efActive = ef && state.design.fontHeading === cleanFontName(ef.heading) && state.design.fontBody === cleanFontName(ef.body);
     const active = !efActive && f.heading === state.design.fontHeading && f.body === state.design.fontBody;
     return `<div class="font-preset${active?' active':''}" onclick="selectFont(${i},this)">
       <div class="font-preset-heading" style="font-family:'${f.heading}',sans-serif">${f.heading}</div>
