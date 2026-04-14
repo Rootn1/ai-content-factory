@@ -376,7 +376,9 @@ Restituisci JSON:
   "target": "target audience identificato",
   "keywords": ["keyword1", "keyword2", ...],
   "instagram": "@handle se trovato oppure stringa vuota",
-  "notes": "altre info utili trovate (nome founder, brand name, ecc.)",
+  "author_name": "nome e cognome del fondatore/autore/persona del brand (es: 'Daniel Porro') — stringa vuota se non trovato",
+  "author_title": "titolo professionale o ruolo dell'autore (es: 'AI Copywriter Specialist') — stringa vuota se non trovato",
+  "notes": "altre info utili trovate (brand name, mission, ecc.)",
   "colors": [{{"hex": "#...", "role": "background|text|accent|secondary|dim"}}],
   "heading_font": "nome esatto del font heading (es: 'Montserrat', 'Inter', 'Playfair Display') — solo il nome, senza descrizioni",
   "body_font": "nome esatto del font body (es: 'Open Sans', 'DM Sans', 'Roboto') — solo il nome, senza descrizioni"

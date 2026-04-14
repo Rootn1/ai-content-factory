@@ -573,8 +573,8 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
         <div style="display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">
           <div id="authorBioThumb" style="width:48px;height:48px;border-radius:50%;background:#181818;border:2px solid var(--border);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-dim)"><span>&#128100;</span></div>
           <div style="flex:1;display:flex;flex-direction:column;gap:4px">
-            <input class="form-input" id="fAuthorName" placeholder="Nome autore — es: Dott. Davide Del Medico" style="font-size:13px;padding:5px 8px;font-weight:600;background:transparent;border-color:var(--border)">
-            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: Commercialista per centri estetici" style="font-size:11px;padding:4px 8px;color:var(--text-dim);background:transparent;border-color:var(--border)">
+            <input class="form-input" id="fAuthorName" placeholder="Nome autore — es: Daniel Porro" style="font-size:13px;padding:5px 8px;font-weight:600;background:transparent;border-color:var(--border)" oninput="renderPreview()">
+            <input class="form-input" id="fAuthorTitle" placeholder="Titolo — es: AI Copywriter Specialist" style="font-size:11px;padding:4px 8px;color:var(--text-dim);background:transparent;border-color:var(--border)" oninput="renderPreview()">
           </div>
         </div>
         <p class="form-hint">Si auto-compila dall'analisi URL. La foto si aggiorna dalla sezione sopra.</p>
@@ -1250,14 +1250,16 @@ function fillBrandForm(data) {
   if (document.getElementById('fUrl').value.trim() || state.paletteImage) {
     document.getElementById('btnRetryPalette').style.display = '';
   }
-  // Auto-fill author bio from brand data
-  if (data.notes) {
-    const nameEl = document.getElementById('fAuthorName');
-    if (nameEl && !nameEl.value) nameEl.value = data.notes.split(',')[0].trim().substring(0, 60);
+  // Auto-fill author bio — use dedicated fields first, fallback to notes/niche
+  const nameEl = document.getElementById('fAuthorName');
+  const titleEl = document.getElementById('fAuthorTitle');
+  if (nameEl) {
+    const name = data.author_name?.trim() || '';
+    if (name) nameEl.value = name; // always overwrite with fresh extraction
   }
-  if (data.niche) {
-    const titleEl = document.getElementById('fAuthorTitle');
-    if (titleEl && !titleEl.value) titleEl.value = data.niche.substring(0, 80);
+  if (titleEl) {
+    const title = data.author_title?.trim() || data.niche?.substring(0, 80) || '';
+    if (title) titleEl.value = title;
   }
   // Update bio preview with author photo if available
   updateAuthorBioPreview();
