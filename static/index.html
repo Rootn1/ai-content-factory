@@ -765,7 +765,6 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="generateImages()" style="flex:none">Genera le slide</button>
-        <button class="btn btn-secondary hidden" id="btnExportZip" onclick="exportZip()" style="flex:none">&#128230; Scarica ZIP</button>
         <div class="loading hidden" id="imgLoading"><div class="spinner"></div><span id="imgProgress">Generazione...</span></div>
       </div>
       <div class="progress-bar hidden" id="imgProgressBar" style="margin-top:10px"><div class="progress-fill" id="imgProgressFill"></div></div>
@@ -777,17 +776,38 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 <!-- SECTION: Gallery -->
 <!-- ============================================================ -->
 <div id="sec-gallery" class="section hidden">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-    <div>
-      <h1 class="section-title">Galleria</h1>
-      <p class="section-subtitle">Tutti i post generati</p>
-    </div>
-    <button class="btn btn-secondary" onclick="downloadAll()">Scarica tutti</button>
+  <div style="margin-bottom:20px">
+    <h1 class="section-title">Galleria</h1>
+    <p class="section-subtitle">Tutti i post generati — clicca per sfogliare e scaricare</p>
   </div>
   <div class="gallery-grid" id="galleryGrid"></div>
 </div>
 
 </div><!-- /main -->
+
+<!-- Gallery Slideshow Modal -->
+<div id="gallerySlideshowModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2000;flex-direction:column;align-items:center;justify-content:center" onclick="if(event.target===this)closeGallerySlideshow()">
+  <!-- Header bar -->
+  <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);z-index:10">
+    <div>
+      <div id="gsTitle" style="font-size:14px;font-weight:600;color:#fff"></div>
+      <div id="gsMeta" style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="gsCounter" style="font-size:12px;color:rgba(255,255,255,.5);margin-right:4px"></span>
+      <button id="btnGalleryZip" class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="downloadGalleryZip()">&#128230; Scarica ZIP</button>
+      <button onclick="closeGallerySlideshow()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    </div>
+  </div>
+  <!-- Slide display -->
+  <div style="display:flex;align-items:center;gap:20px;padding:60px 20px 80px">
+    <button onclick="prevGallerySlide()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;flex-shrink:0;transition:.2s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">&#8592;</button>
+    <div id="gsSlideWrap" style="max-width:420px;max-height:75vh;border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.8)"></div>
+    <button onclick="nextGallerySlide()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;flex-shrink:0;transition:.2s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">&#8594;</button>
+  </div>
+  <!-- Dots navigation -->
+  <div id="gsDots" style="position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 40px"></div>
+</div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
@@ -1694,8 +1714,6 @@ async function loadLabPost() {
   document.getElementById('captionArea').value = '';
   document.getElementById('reelScriptArea').value = '';
   document.getElementById('reelScriptBlock').style.display = 'none';
-  document.getElementById('btnExportZip').classList.add('hidden');
-
   renderPostQueue();
 
   // If already completed, restore
@@ -1704,7 +1722,6 @@ async function loadLabPost() {
     renderCopy(state.currentCopy);
     renderPreview();
     renderGeminiList();
-    document.getElementById('btnExportZip').classList.remove('hidden');
     return;
   }
 
@@ -2434,7 +2451,10 @@ function renderPreview() {
     const isGenerating = div.dataset.generating === 'true';
     div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + slideHtml +
       `<div class="slide-regen-overlay">
-        <button class="slide-regen-btn" onclick="event.stopPropagation();regenSlide(${i})">&#x21bb; Rigenera</button>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+          <button class="slide-regen-btn" onclick="event.stopPropagation();regenSlide(${i})">&#x21bb; Rigenera</button>
+          <button class="slide-regen-btn" style="background:#222;border:1px solid #555" onclick="event.stopPropagation();downloadSlidePng(${i})">&#8595; PNG</button>
+        </div>
        </div>`;
     div.onclick = () => openLightbox(i);
     grid.appendChild(div);
@@ -2717,6 +2737,22 @@ function renderGeminiList() {
     </div>`;
 }
 
+async function downloadSlidePng(idx) {
+  const slide = state.currentCopy?.slides?.[idx];
+  if (!slide) return;
+  let b64 = slide.img_b64;
+  if (!b64) {
+    // Capture HTML rendering via html2canvas
+    toast('Cattura slide...', 'success');
+    b64 = await captureSlideAsPng(slide, idx);
+  }
+  if (!b64) { toast('Impossibile esportare la slide', 'error'); return; }
+  const a = document.createElement('a');
+  a.href = 'data:image/png;base64,' + b64;
+  a.download = `slide_${(idx+1).toString().padStart(2,'0')}.png`;
+  a.click();
+}
+
 async function regenSlide(idx) {
   const slides = state.currentCopy.slides;
   slides[idx].img_b64 = null; // clear to force regeneration
@@ -2760,10 +2796,9 @@ async function regenSlide(idx) {
   renderPreview();
   renderGeminiList();
 
-  // Show ZIP only if all done
+  // Mark post ready if all done
   const allDone = slides.every(s => !!s.img_b64);
   if (allDone) {
-    document.getElementById('btnExportZip').classList.remove('hidden');
     const post = state.selectedPosts[state.currentPostIdx];
     if (post) { post._status = 'ready'; renderPostQueue(); }
   }
@@ -2776,7 +2811,6 @@ async function generateImages() {
   const fill = document.getElementById('imgProgressFill');
   loading.classList.remove('hidden');
   bar.classList.remove('hidden');
-  document.getElementById('btnExportZip').classList.add('hidden');
 
   const slides = state.currentCopy.slides;
   const post = state.selectedPosts[state.currentPostIdx];
@@ -2883,7 +2917,6 @@ async function generateImages() {
   // Only show ZIP button if ALL slides have images
   const allGenerated = slides.every(s => !!s.img_b64);
   if (allGenerated) {
-    document.getElementById('btnExportZip').classList.remove('hidden');
     // Mark post as ready and save copy for restore
     const post = state.selectedPosts[state.currentPostIdx];
     if (post) {
@@ -2897,98 +2930,24 @@ async function generateImages() {
         content_type: post.content_type,
         slides: post._savedCopy.slides,
         caption: post._savedCopy.caption || '',
+        reel_script: post._savedCopy.reel_script || '',
         completedAt: new Date().toISOString(),
       };
       if (alreadyIn >= 0) state.completedPosts[alreadyIn] = galleryEntry;
       else state.completedPosts.unshift(galleryEntry);
       renderPostQueue();
     }
-    toast('✓ Tutte le slide generate — download ZIP in corso...', 'success');
-    // Auto-download ZIP
-    await autoExportZip();
+    toast('✓ Tutte le slide pronte! Vai in Galleria per scaricare.', 'success');
   } else {
     const failed = slides.filter(s => !s.img_b64).length;
     toast(`${failed} slide non generate. Riprova con "Genera le slide".`, 'error');
   }
 }
 
-async function autoExportZip() {
-  try {
-    const zip = new JSZip();
-    const slides = state.currentCopy.slides;
-    const folder = zip.folder('slides');
-    for (let i = 0; i < slides.length; i++) {
-      let imgData = slides[i].img_b64;
-      if (!imgData) { try { imgData = await captureSlideAsPng(slides[i], i); } catch(e) {} }
-      if (imgData) folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, imgData, {base64: true});
-    }
-    const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
-    if (caption) zip.file('caption.txt', caption);
-    const reelScript = document.getElementById('reelScriptArea')?.value || state.currentCopy.reel_script || '';
-    if (reelScript) zip.file('script_reel.txt', reelScript);
-    const blob = await zip.generateAsync({type:'blob'});
-    const a = document.createElement('a');
-    const postTopic = (state.selectedPosts[state.currentPostIdx]?.topic || 'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
-    a.href = URL.createObjectURL(blob);
-    a.download = `${state.slug||'content'}-${postTopic}.zip`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  } catch(e) { console.error('Auto-ZIP error:', e); }
-}
-
 function getSlideFullHTML(slide, idx, includeImages) {
   // Returns a full standalone HTML document for export
   const inner = getSlideHTML(slide, idx, includeImages);
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(state.design.fontHeading)}:wght@400;700&family=${encodeURIComponent(state.design.fontBody)}:wght@400;500&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0">${inner}</body></html>`;
-}
-
-async function exportZip() {
-  if (!state.currentCopy?.slides?.length) { toast('Nessuna slide da esportare', 'error'); return; }
-  const btn = document.getElementById('btnExportZip');
-  const origText = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></div> Preparazione ZIP...';
-  try {
-    const zip = new JSZip();
-    const slides = state.currentCopy.slides;
-    const folder = zip.folder('slides');
-
-    for (let i = 0; i < slides.length; i++) {
-      let imgData = slides[i].img_b64;
-      // Fallback: capture HTML preview if no Gemini image
-      if (!imgData) {
-        try { imgData = await captureSlideAsPng(slides[i], i); } catch(e) {}
-      }
-      if (imgData) {
-        folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, imgData, {base64: true});
-      }
-    }
-
-    // Add caption
-    const caption = document.getElementById('captionArea')?.value || state.currentCopy.caption || '';
-    if (caption) zip.file('caption.txt', caption);
-
-    // Add reel script
-    const reelScript = document.getElementById('reelScriptArea')?.value || state.currentCopy.reel_script || '';
-    if (reelScript) zip.file('script_reel.txt', reelScript);
-
-    // Add full copy block
-    const fullCopy = slides.map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
-    if (fullCopy) zip.file('copy.txt', fullCopy);
-
-    // Generate and download
-    const blob = await zip.generateAsync({type: 'blob'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (state.slug || 'content') + '-export.zip';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('ZIP scaricato!', 'success');
-  } catch(e) { toast('Errore export: ' + e.message, 'error'); }
-  finally {
-    btn.disabled = false;
-    btn.innerHTML = origText;
-  }
 }
 
 // =================================================================
@@ -3010,48 +2969,104 @@ async function loadGallery() {
       ? `<img src="data:image/png;base64,${firstSlide.img_b64}" alt="${escHtml(p.topic)}">`
       : `<span style="font-size:32px">&#128196;</span>`;
     const slideCount = p.slides?.length || 0;
-    const doneCount = p.slides?.filter(s=>s.img_b64).length || 0;
+    const doneCount = p.slides?.filter(s => s.img_b64).length || 0;
     const dateStr = p.completedAt ? new Date(p.completedAt).toLocaleDateString('it-IT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
-    return `<div class="gallery-card">
+    return `<div class="gallery-card" onclick="openGallerySlideshow(${i})">
       <div class="gallery-thumb">
         ${thumb}
         <span class="gallery-thumb-count">${doneCount}/${slideCount} slide</span>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s;display:flex;align-items:center;justify-content:center;font-size:28px;opacity:0" class="gallery-play-icon">&#9654;</div>
       </div>
       <div class="gallery-info">
         <div class="gallery-topic">${escHtml(p.topic)}</div>
         <div class="gallery-meta">${p.content_type||''} &middot; ${dateStr}</div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn btn-sm btn-secondary" onclick="redownloadPost(${i})" style="font-size:11px;padding:4px 10px">&#128230; ZIP</button>
-          <button class="btn btn-sm btn-secondary" onclick="goToLabPost(${i})" style="font-size:11px;padding:4px 10px">&#9998; Modifica</button>
-        </div>
       </div>
     </div>`;
   }).join('');
+  // Hover effect on play icon
+  document.querySelectorAll('.gallery-card').forEach(card => {
+    const icon = card.querySelector('.gallery-play-icon');
+    card.addEventListener('mouseenter', () => { icon.style.opacity='1'; icon.style.background='rgba(0,0,0,.4)'; });
+    card.addEventListener('mouseleave', () => { icon.style.opacity='0'; icon.style.background='rgba(0,0,0,0)'; });
+  });
 }
 
-async function redownloadPost(galleryIdx) {
-  const p = state.completedPosts[galleryIdx];
+// ── Slideshow state ──────────────────────────────────────────────
+let _gsPostIdx = 0, _gsSlideIdx = 0;
+
+function openGallerySlideshow(postIdx) {
+  _gsPostIdx = postIdx;
+  _gsSlideIdx = 0;
+  const modal = document.getElementById('gallerySlideshowModal');
+  modal.style.display = 'flex';
+  renderGallerySlide();
+}
+function closeGallerySlideshow() {
+  document.getElementById('gallerySlideshowModal').style.display = 'none';
+}
+function prevGallerySlide() {
+  const p = state.completedPosts[_gsPostIdx];
+  if (!p?.slides?.length) return;
+  _gsSlideIdx = (_gsSlideIdx - 1 + p.slides.length) % p.slides.length;
+  renderGallerySlide();
+}
+function nextGallerySlide() {
+  const p = state.completedPosts[_gsPostIdx];
+  if (!p?.slides?.length) return;
+  _gsSlideIdx = (_gsSlideIdx + 1) % p.slides.length;
+  renderGallerySlide();
+}
+function renderGallerySlide() {
+  const p = state.completedPosts[_gsPostIdx];
   if (!p) return;
-  const zip = new JSZip();
-  const folder = zip.folder('slides');
-  for (let i = 0; i < p.slides.length; i++) {
-    if (p.slides[i].img_b64) folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, p.slides[i].img_b64, {base64: true});
+  const slides = p.slides || [];
+  const slide = slides[_gsSlideIdx];
+  // Header
+  document.getElementById('gsTitle').textContent = p.topic || '';
+  document.getElementById('gsMeta').textContent = `${p.content_type||''} · ${slide?.type||''} · ${new Date(p.completedAt||Date.now()).toLocaleDateString('it-IT')}`;
+  document.getElementById('gsCounter').textContent = `${_gsSlideIdx+1} / ${slides.length}`;
+  // Image
+  const wrap = document.getElementById('gsSlideWrap');
+  if (slide?.img_b64) {
+    wrap.innerHTML = `<img src="data:image/png;base64,${slide.img_b64}" style="max-width:420px;max-height:70vh;width:100%;display:block;border-radius:8px">`;
+  } else {
+    wrap.innerHTML = `<div style="width:300px;height:375px;background:#1a1a1a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Nessuna immagine</div>`;
   }
-  if (p.caption) zip.file('caption.txt', p.caption);
-  const blob = await zip.generateAsync({type:'blob'});
-  const a = document.createElement('a');
-  const name = (p.topic||'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
-  a.href = URL.createObjectURL(blob);
-  a.download = `${state.slug||'content'}-${name}.zip`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('ZIP scaricato!', 'success');
+  // Dots
+  const dots = document.getElementById('gsDots');
+  dots.innerHTML = slides.map((_, i) => `<div onclick="(_gsSlideIdx=${i},renderGallerySlide())" style="width:${i===_gsSlideIdx?'20':'7'}px;height:7px;border-radius:4px;background:${i===_gsSlideIdx?'var(--accent)':'rgba(255,255,255,.3)'};transition:.2s;cursor:pointer"></div>`).join('');
+}
+
+async function downloadGalleryZip() {
+  const p = state.completedPosts[_gsPostIdx];
+  if (!p) return;
+  const btn = document.getElementById('btnGalleryZip');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></div> Preparazione...';
+  try {
+    const zip = new JSZip();
+    const folder = zip.folder('slides');
+    for (let i = 0; i < p.slides.length; i++) {
+      if (p.slides[i].img_b64) folder.file(`slide_${String(i+1).padStart(2,'0')}.png`, p.slides[i].img_b64, {base64: true});
+    }
+    if (p.caption) zip.file('caption.txt', p.caption);
+    if (p.reel_script) zip.file('script_reel.txt', p.reel_script);
+    const blob = await zip.generateAsync({type:'blob'});
+    const a = document.createElement('a');
+    const name = (p.topic||'post').replace(/[^a-z0-9]/gi,'-').toLowerCase().substring(0,30);
+    a.href = URL.createObjectURL(blob);
+    a.download = `${state.slug||'content'}-${name}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('ZIP scaricato!', 'success');
+  } catch(e) { toast('Errore ZIP: ' + e.message, 'error'); }
+  btn.disabled = false;
+  btn.innerHTML = '&#128230; Scarica ZIP';
 }
 
 function goToLabPost(galleryIdx) {
   const p = state.completedPosts[galleryIdx];
   if (!p) return;
-  // Find matching post in selectedPosts
   const idx = state.selectedPosts.findIndex(sp => sp.topic === p.topic);
   if (idx >= 0) {
     state.currentPostIdx = idx;
@@ -3097,10 +3112,14 @@ async function loadProject(slug) {
   } catch(e) { toast('Errore: ' + e.message, 'error'); }
 }
 
-async function downloadAll() {
-  if (!state.slug) { toast('Nessun progetto attivo', 'error'); return; }
-  await exportZip();
-}
+// Keyboard nav for gallery slideshow
+document.addEventListener('keydown', e => {
+  const modal = document.getElementById('gallerySlideshowModal');
+  if (!modal || modal.style.display === 'none') return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); nextGallerySlide(); }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); prevGallerySlide(); }
+  if (e.key === 'Escape') closeGallerySlideshow();
+});
 
 // =================================================================
 // UTILS
