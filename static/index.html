@@ -1846,7 +1846,13 @@ function updateSlide(idx, field, val) {
   if (state.currentCopy?.slides?.[idx]) {
     state.currentCopy.slides[idx][field] = val;
     renderPreview();
+    updateFullCopyBlock();
   }
+}
+function updateFullCopyBlock() {
+  const el = document.getElementById('fullCopyBlock');
+  if (!el || !state.currentCopy?.slides) return;
+  el.value = state.currentCopy.slides.map(s => `[${s.type}] ${s.heading}\n${s.body}`).join('\n\n');
 }
 
 function copyReelScript() {
@@ -2542,6 +2548,7 @@ function refreshLightboxSlide(idx) {
   const wrap = document.getElementById('lbSlideWrap');
   if (wrap) wrap.innerHTML = getSlideHTML(slide, idx, true);
   renderPreview();
+  updateFullCopyBlock();
   // Re-init drag after re-render
   initBodyDrag(idx);
 }
