@@ -2278,10 +2278,10 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const aName = document.getElementById('fAuthorName')?.value || state.brand.instagram || '';
   const aTitle = document.getElementById('fAuthorTitle')?.value || '';
 
-  // === HERO IMAGE BLOCK (top strip when "Hero Image" visual element is active) ===
-  const hImgH = Math.round(parseInt(h) * 0.30); // 30% of slide height
+  // === HERO IMAGE BLOCK — solo prima slide (hero) ===
+  const hImgH = Math.round(parseInt(h) * 0.30);
   let heroImgBlock = '';
-  if (ve.hero_image && slide.type !== 'cta') {
+  if (ve.hero_image && isHero) {  // ← solo slide hero/copertina
     if (state.authorB64) {
       heroImgBlock = `<div style="width:100%;height:${hImgH}px;overflow:hidden;flex-shrink:0;position:relative;z-index:2">
         <img src="${state.authorB64}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%">

@@ -995,14 +995,52 @@ async def generate_images(request: Request):
         elif ct in ["mappa_mentale", "framework"]:
             visual_style = "Add connecting lines, nodes, and flowchart-like decorative elements. "
 
-        # Hero image overlay for slide 1
+        # Hero image overlay — only for first/hero slide, randomised style
         hero_overlay = ""
-        if hero_image_requested and slide_idx == 1:
-            hero_overlay = (
-                "Add a prominent, attention-grabbing graphic element — "
-                "a relevant icon, bold illustration, or visual metaphor related to the topic. "
-                "This hero visual should occupy ~25-30% of the slide. "
-            )
+        if hero_image_requested and is_hero:
+            import random
+            _styles = [
+                "photorealistic portrait photo",
+                "bold comic-book illustration",
+                "flat vector illustration",
+                "editorial magazine-style photo",
+                "painted artistic portrait",
+                "high-contrast graphic novel style",
+            ]
+            _positions = [
+                "top-centre of the slide, large and prominent",
+                "right side of the slide, cropped at shoulder, vertical",
+                "full-width banner across the top third",
+                "left side, tall vertical strip with slight overlap on text area",
+                "centre of slide, circular crop with decorative border",
+            ]
+            _expressions = [
+                "confident smile, direct eye contact",
+                "thoughtful expression, looking slightly off-camera",
+                "energetic, slightly forward-leaning pose",
+                "relaxed, approachable expression",
+                "professional, authoritative stance",
+                "dynamic pose, caught mid-action or gesture",
+            ]
+            chosen_style = random.choice(_styles)
+            chosen_pos = random.choice(_positions)
+            chosen_expr = random.choice(_expressions)
+            if author_b64:
+                hero_overlay = (
+                    f"The reference image already contains the author's face/photo at the top. "
+                    f"Transform this photo into a {chosen_style}. "
+                    f"Reposition or reframe it to be {chosen_pos}. "
+                    f"Show the person with a {chosen_expr}. "
+                    f"The result should look intentional and professional — not a literal crop of the original. "
+                    f"Keep the identity recognisable but dramatically improve the visual treatment. "
+                    f"This hero visual should occupy ~25-30% of the slide. "
+                )
+            else:
+                hero_overlay = (
+                    f"Create a prominent hero visual in {chosen_style} style, positioned at {chosen_pos}. "
+                    f"The illustration should be a {chosen_expr} person relevant to the {sector} sector. "
+                    f"This hero visual should occupy ~25-30% of the slide. "
+                )
 
         # --- BUILD PROMPT ---
         if ref_b64:
