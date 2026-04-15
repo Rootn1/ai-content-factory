@@ -2239,10 +2239,6 @@ function getSlideHTML(slide, idx, includeImages=false) {
   const totalSlides = state.currentCopy?.slides?.length || 1;
   const post = state.selectedPosts?.[state.currentPostIdx] || {};
   const pillarTag = (post.pillar || post.content_type || '').toUpperCase().replace(/_/g, ' ');
-  // Extract short brand name from internal notes or instagram handle
-  const rawNotes = state.brand?._extractedNotes || state.brand?.notes || '';
-  const brandMatch = rawNotes.match(/brand\s*name[:\s]+([^.|,|]+)/i);
-  const brandNotes = brandMatch ? brandMatch[1].trim() : (state.brand?.instagram?.replace(/@/g,'') || '').substring(0, 20);
   const brandHandle = state.brand?.instagram ? '@' + state.brand.instagram.replace(/@/g,'') : '';
 
   // === ACCENT BAR (top) ===
@@ -2258,14 +2254,12 @@ function getSlideHTML(slide, idx, includeImages=false) {
     progressHtml = `<div style="position:absolute;bottom:32px;left:26px;right:26px;display:flex;gap:3px;z-index:5">${dots.join('')}</div>`;
   }
 
-  // === BRAND FOOTER ===
-  let footerHtml = '';
-  if (brandNotes || brandHandle) {
-    footerHtml = `<div style="position:absolute;bottom:10px;left:26px;right:26px;display:flex;justify-content:space-between;align-items:center;z-index:5">
-      <div style="font-family:'${fh}',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;color:${textColor};opacity:0.6">${escHtml(brandNotes.toUpperCase())}</div>
-      ${brandHandle ? `<div style="font-family:'${fb}',sans-serif;font-size:9px;color:${dim};opacity:0.6">${escHtml(brandHandle)}</div>` : ''}
-    </div>`;
-  }
+  // === BRAND FOOTER (solo handle Instagram se presente) ===
+  const footerHtml = brandHandle
+    ? `<div style="position:absolute;bottom:10px;right:26px;z-index:5">
+        <div style="font-family:'${fb}',sans-serif;font-size:9px;color:${dim};opacity:0.6">${escHtml(brandHandle)}</div>
+       </div>`
+    : '';
 
   // === LOGO ===
   const showLogo = document.getElementById('chkLogo')?.checked && state.logoB64;
