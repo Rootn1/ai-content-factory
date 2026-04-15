@@ -730,6 +730,7 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
           <label class="ve-chip"><input type="checkbox" id="chkQuotes"><span>&#128172; Citazioni</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkTimeline"><span>&#128197; Timeline</span></label>
           <label class="ve-chip"><input type="checkbox" id="chkDiagrams"><span>&#128208; Diagrammi</span></label>
+          <label class="ve-chip"><input type="checkbox" id="chkImages"><span>&#128444; Immagini</span></label>
         </div>
       </div>
     </div>
@@ -2093,6 +2094,7 @@ function getVisualElements() {
     quotes: document.getElementById('chkQuotes')?.checked || false,
     timeline: document.getElementById('chkTimeline')?.checked || false,
     diagrams: document.getElementById('chkDiagrams')?.checked || false,
+    images: document.getElementById('chkImages')?.checked || false,
   };
 }
 function setAlignField(field, val, btn) {
@@ -2293,8 +2295,20 @@ function getSlideHTML(slide, idx, includeImages=false) {
     }
   }
 
+  // === IMAGE BLOCK (body slides) ===
+  const bImgH = Math.round(parseInt(h) * 0.22);
+  let bodyImgBlock = '';
+  if (ve.images && !isHero && slide.type !== 'cta') {
+    bodyImgBlock = `<div style="width:100%;height:${bImgH}px;flex-shrink:0;background:linear-gradient(135deg,${accent}20 0%,${accent}06 100%);display:flex;align-items:center;justify-content:center;border-bottom:1px solid ${accent}22;position:relative;z-index:2">
+      <div style="text-align:center;opacity:.3;user-select:none">
+        <div style="font-size:${Math.round(bImgH*0.32)}px;line-height:1">&#128444;</div>
+        <div style="font-size:8px;font-family:sans-serif;color:${textColor};margin-top:4px;letter-spacing:1px;text-transform:uppercase">Immagine</div>
+      </div>
+    </div>`;
+  }
+
   // === CONTENT ===
-  const cPad = heroImgBlock ? '10px 26px 54px' : '24px 26px 54px'; // less top padding when image block above
+  const cPad = (heroImgBlock || bodyImgBlock) ? '10px 26px 54px' : '24px 26px 54px'; // less top padding when image block above
   let content = '';
 
   if (isHero) {
@@ -2385,7 +2399,7 @@ function getSlideHTML(slide, idx, includeImages=false) {
   // Author overlay for non-CTA slides (above progress bar)
   const authorOverlay = (showAuthor && slide.type !== 'cta') ? `<div style="position:absolute;bottom:42px;left:26px;right:26px;z-index:5;display:flex;align-items:center;gap:8px;background:${bg}dd;padding:6px 10px;border-radius:6px"><img src="${state.authorB64}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;object-position:center 20%;border:2px solid ${accent};flex-shrink:0"><div><div style="font-family:'${fb}',sans-serif;font-size:10px;font-weight:600;color:${textColor}">${escHtml(aName)}</div>${aTitle ? `<div style="font-family:'${fb}',sans-serif;font-size:8px;color:${dim}">${escHtml(aTitle)}</div>` : ''}</div></div>` : '';
 
-  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;flex-direction:column;border-radius:4px">${imgTag}${accentBar}${logoHtml}${arrowHtml}${heroImgBlock}${content}${authorOverlay}${progressHtml}${footerHtml}</div>`;
+  return `<div style="width:${w};height:${h};background:${bg};position:relative;overflow:hidden;display:flex;flex-direction:column;border-radius:4px">${imgTag}${accentBar}${logoHtml}${arrowHtml}${heroImgBlock}${bodyImgBlock}${content}${authorOverlay}${progressHtml}${footerHtml}</div>`;
 }
 
 // Capture a slide HTML element to PNG base64 via html2canvas

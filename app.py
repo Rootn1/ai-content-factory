@@ -956,6 +956,7 @@ async def generate_images(request: Request):
         ve_parts.append("Add diagram-style visual elements: flowcharts, process diagrams, cycle graphics, or structured visual frameworks.")
     visual_instructions = "\n".join(ve_parts)
     hero_image_requested = visual_elements.get("hero_image", False)
+    images_requested = visual_elements.get("images", False)
 
     results = []
     for slide in slides:
@@ -1042,6 +1043,17 @@ async def generate_images(request: Request):
                     f"This hero visual should occupy ~25-30% of the slide. "
                 )
 
+        # Content image overlay — for non-hero body slides when images are requested
+        content_image_overlay = ""
+        if images_requested and not is_hero and st != "cta":
+            content_image_overlay = (
+                f"The reference image shows a light placeholder strip at the top of the slide. "
+                f"Replace that placeholder with a REAL, vivid illustrative image directly relevant to the slide topic: \"{heading}\". "
+                f"The image should be a concrete scene, object, concept or person that visually represents this topic — photorealistic or high-quality illustration style. "
+                f"It should occupy the top ~22% of the slide, with a gradient fade at the bottom so it blends into the background. "
+                f"The image must feel intentional and editorial, not stock-photo generic. "
+            )
+
         # --- BUILD PROMPT ---
         if ref_b64:
             # PRIMARY PATH: enhance the HTML reference PNG with graphics only
@@ -1056,6 +1068,7 @@ async def generate_images(request: Request):
                 f"- Fill empty space with visual interest — no large blank areas\n"
                 f"{visual_style}"
                 f"{hero_overlay}"
+                f"{content_image_overlay}"
                 f"{visual_instructions + chr(10) if visual_instructions else ''}"
                 f"\nCRITICAL RULES — MUST FOLLOW:\n"
                 f"- **NO TEXT**: Do NOT add, modify, move, rewrite, or generate ANY text or lettering.\n"
@@ -1078,6 +1091,7 @@ async def generate_images(request: Request):
                 f"Leave clear space for text overlay — do NOT include any text. "
                 f"{visual_style}"
                 f"{hero_overlay}"
+                f"{content_image_overlay}"
                 f"{visual_instructions + ' ' if visual_instructions else ''}"
                 f"\nCRITICAL: NO TEXT. NO WATERMARK. NO LABELS. NO LETTERING of any kind. "
                 f"Output a purely visual/graphic design. Vertical 4:5 format, 1080x1350px."
