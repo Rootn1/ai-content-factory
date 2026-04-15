@@ -1660,10 +1660,12 @@ function exportCalCSV() {
   state.calendar.forEach(e => {
     csv += [e.date,e.pillar,`"${e.topic}"`,e.format,e.content_type,e.content_category,`"${e.objective||''}"`,`"${e.hook||''}"`,`"${e.cta||''}"`].join(',') + '\n';
   });
-  downloadBlob(csv, 'calendario.csv', 'text/csv');
+  const fname = `Calendario_${state.duration}gg_${state.slug || 'sito'}`;
+  downloadBlob(csv, `${fname}.csv`, 'text/csv');
 }
 function exportCalJSON() {
-  downloadBlob(JSON.stringify({entries: state.calendar}, null, 2), 'calendario.json', 'application/json');
+  const fname = `Calendario_${state.duration}gg_${state.slug || 'sito'}`;
+  downloadBlob(JSON.stringify({entries: state.calendar}, null, 2), `${fname}.json`, 'application/json');
 }
 function downloadBlob(content, filename, type) {
   const blob = new Blob([content], {type});
@@ -2450,13 +2452,13 @@ function renderPreview() {
     slideHtml = slideHtml.replace(/width:\d+px/, 'width:100%').replace(/height:\d+px/, 'height:100%');
     const isGenerating = div.dataset.generating === 'true';
     div.innerHTML = `<span class="thumb-label">${slide.type}</span>${warn}` + slideHtml +
+      `<div style="position:absolute;inset:0;z-index:15;cursor:pointer" onclick="event.stopPropagation();openLightbox(${i})"></div>` +
       `<div class="slide-regen-overlay">
         <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
           <button class="slide-regen-btn" onclick="event.stopPropagation();regenSlide(${i})">&#x21bb; Rigenera</button>
           <button class="slide-regen-btn" style="background:#222;border:1px solid #555" onclick="event.stopPropagation();downloadSlidePng(${i})">&#8595; PNG</button>
         </div>
        </div>`;
-    div.onclick = () => openLightbox(i);
     grid.appendChild(div);
   });
 }
