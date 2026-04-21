@@ -640,6 +640,7 @@ Obiettivo: diventare la risorsa informativa di riferimento per il target.""",
 
 @app.post("/api/generate-calendar")
 async def generate_calendar(request: Request):
+  try:
     data = await request.json()
     pillars = data.get("pillars", [])
     duration = data.get("duration", 7)
@@ -727,16 +728,39 @@ Restituisci JSON:
   ]
 }}"""
 
-    result = await claude_chat([{"role": "user", "content": prompt}], system=system, max_tokens=8000)
+    result = await claude_chat([{"role": "user", "content": prompt}], system=system, max_tokens=16000)
+    raw = result.strip()
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
     try:
-        parsed = json.loads(result.strip().removeprefix("```json").removesuffix("```").strip())
-    except json.JSONDecodeError:
-        parsed = {"entries": [], "raw": result}
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as je:
+        logger.error(f"Calendar JSON parse error: {je}\nRaw (first 500): {raw[:500]}")
+        # Try to salvage partial JSON by extracting entries array
+        m = re.search(r'"entries"\s*:\s*(\[.*)', raw, re.S)
+        if m:
+            try:
+                entries = json.loads(m.group(1).rstrip(",} \n"))
+                parsed = {"entries": entries}
+            except Exception:
+                parsed = {"entries": [], "raw": raw[:2000]}
+        else:
+            parsed = {"entries": [], "raw": raw[:2000]}
 
     slug = brand_data.get("slug", "")
     if slug:
-        save_json(project_dir(slug) / "calendar.json", parsed)
+        try:
+            save_json(project_dir(slug) / "calendar.json", parsed)
+        except Exception as e:
+            logger.warning(f"Could not save calendar.json: {e}")
     return parsed
+
+  except HTTPException:
+    raise
+  except Exception as e:
+    logger.error(f"generate_calendar error: {traceback.format_exc()}")
+    raise HTTPException(500, f"Errore generazione calendario: {str(e)}")
 
 
 @app.post("/api/generate-copy")
