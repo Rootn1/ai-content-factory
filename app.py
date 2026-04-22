@@ -640,127 +640,120 @@ Obiettivo: diventare la risorsa informativa di riferimento per il target.""",
 
 @app.post("/api/generate-calendar")
 async def generate_calendar(request: Request):
-  try:
-    data = await request.json()
-    pillars = data.get("pillars", [])
-    duration = data.get("duration", 7)
-    frequency = data.get("frequency", {})
-    mix_preset = data.get("mix_preset", "bilanciato")
-    extra_notes = data.get("extra_notes", "")
-    brand_data = data.get("brand_data", {})
+    try:
+        data = await request.json()
+        pillars = data.get("pillars", [])
+        duration = data.get("duration", 7)
+        frequency = data.get("frequency", {})
+        mix_preset = data.get("mix_preset", "bilanciato")
+        extra_notes = data.get("extra_notes", "")
+        brand_data = data.get("brand_data", {})
 
-    days_per_week = frequency.get("days_per_week", 5)
-    posts_per_day = frequency.get("posts_per_day", 1)
-    selected_days = frequency.get("selected_days", [1, 2, 3, 4, 5])
+        days_per_week = frequency.get("days_per_week", 5)
+        posts_per_day = frequency.get("posts_per_day", 1)
+        selected_days = frequency.get("selected_days", [1, 2, 3, 4, 5])
 
-    # Build pillar details with angles for richer context
-    pillar_details = []
-    for p in pillars:
-        name = p.get("name", "")
-        subtitle = p.get("subtitle", "")
-        angles = p.get("angles", [])
-        angles_str = ", ".join(angles[:8]) if angles else ""
-        pillar_details.append(f"- {name}: {subtitle}. Angoli: {angles_str}")
-    pillar_block = "\n".join(pillar_details) if pillar_details else "Nessun pillar definito"
+        # Build pillar details
+        pillar_details = []
+        for p in pillars:
+            name = p.get("name", "")
+            subtitle = p.get("subtitle", "")
+            angles = p.get("angles", [])
+            angles_str = ", ".join(angles[:6]) if angles else ""
+            pillar_details.append(f"- {name}: {subtitle}. Angoli: {angles_str}")
+        pillar_block = "\n".join(pillar_details) if pillar_details else "Nessun pillar definito"
 
-    niche = brand_data.get("niche", "")
-    target = brand_data.get("target", "")
-    tone = brand_data.get("tone", "")
-    usp = brand_data.get("usp", "")
+        niche = brand_data.get("niche", "")
+        target = brand_data.get("target", "")
+        tone = brand_data.get("tone", "")
+        usp = brand_data.get("usp", "")
 
-    system = """Sei un content strategist esperto di social media marketing italiano.
+        system = """Sei un content strategist esperto di social media marketing italiano.
 Genera un calendario editoriale dettagliato.
 Ogni topic deve essere SPECIFICO per la nicchia e il target indicati — MAI generico.
 Scrivi SEMPRE in italiano.
 Rispondi SOLO con JSON valido, senza markdown fences."""
 
-    prompt = f"""Genera un calendario editoriale di {duration} giorni.
+        mix_desc = MIX_PRESETS.get(mix_preset, MIX_PRESETS["bilanciato"])
+
+        def build_prompt(chunk_duration: int, start_date: str, chunk_num: int, total_chunks: int) -> str:
+            chunk_info = f" (parte {chunk_num}/{total_chunks})" if total_chunks > 1 else ""
+            return f"""Genera un calendario editoriale di {chunk_duration} giorni{chunk_info}.
 
 BRAND:
-Nicchia: {niche}
-Target: {target}
+Nicchia: {niche} | Target: {target} | Tono: {tone}
 USP: {usp}
-Tono: {tone}
 
-PILLAR EDITORIALI (usa questi come base per i topic):
+PILLAR:
 {pillar_block}
 
 CONFIGURAZIONE:
 Frequenza: {days_per_week} giorni/settimana, {posts_per_day} post/giorno
-Giorni attivi (0=dom, 1=lun...): {selected_days}
-Data inizio: {datetime.now().strftime('%Y-%m-%d')}
-Note extra: {extra_notes}
+Giorni attivi (0=dom...6=sab): {selected_days}
+Data inizio chunk: {start_date}
+Note: {extra_notes}
 
-MIX CONTENUTI RICHIESTO: {mix_preset}
-{MIX_PRESETS.get(mix_preset, MIX_PRESETS["bilanciato"])}
+MIX: {mix_preset}
+{mix_desc}
 
-IMPORTANTE: Ogni topic deve essere SPECIFICO per "{niche}" e rivolto a "{target}".
-Non generare topic generici tipo "come gestire il tempo" — scrivi topic concreti legati al settore.
-Rispetta RIGOROSAMENTE le proporzioni del mix indicato sopra nella distribuzione dei content_category.
+IMPORTANTE: Topic SPECIFICI per "{niche}" — no generici.
 
-CATEGORIE CONTENUTI disponibili:
-- educativo: tutorial_how_to, errori_comuni, checklist, did_you_know, statistiche_shock, step_by_step
-- storytelling: storia_trasformazione, dietro_le_quinte, day_in_the_life
-- engagement: sondaggio, domanda_aperta, this_or_that, caption_contest
-- social_proof: testimonianza, caso_studio, risultati_prima_dopo
-- ispirazionale: quote_motivazionale, lezioni_di_vita, mindset_shift
-- vendita: offerta_diretta, problema_soluzione, confronto_prodotto
-- intrattenimento: meme_settore, trend_reinterpretato, hot_take
-- autorità: previsioni_settore, analisi_trend, opinione_esperta
-- community: user_generated, spotlight_follower, challenge
-
-Per ogni entry usa formato Carosello o Post singolo.
+CATEGORIE: educativo(tutorial_how_to,errori_comuni,checklist,did_you_know,statistiche_shock,step_by_step) | storytelling(storia_trasformazione,dietro_le_quinte,day_in_the_life) | engagement(sondaggio,domanda_aperta,this_or_that) | social_proof(testimonianza,caso_studio) | ispirazionale(quote_motivazionale,lezioni_di_vita,mindset_shift) | vendita(offerta_diretta,problema_soluzione) | intrattenimento(meme_settore,hot_take) | autorità(analisi_trend,opinione_esperta) | community(challenge)
 
 Restituisci JSON:
-{{
-  "entries": [
-    {{
-      "date": "YYYY-MM-DD",
-      "pillar": "Nome Pillar",
-      "topic": "Argomento specifico",
-      "format": "carousel|single",
-      "content_type": "tipo_specifico",
-      "content_category": "categoria",
-      "objective": "obiettivo del post",
-      "hook": "Hook iniziale",
-      "cta": "Call to action"
-    }}
-  ]
-}}"""
+{{"entries":[{{"date":"YYYY-MM-DD","pillar":"Nome","topic":"Argomento","format":"carousel|single","content_type":"tipo","content_category":"categoria","objective":"obiettivo","hook":"Hook","cta":"CTA"}}]}}"""
 
-    result = await claude_chat([{"role": "user", "content": prompt}], system=system, max_tokens=16000)
-    raw = result.strip()
-    # Strip markdown fences if present
-    if raw.startswith("```"):
-        raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as je:
-        logger.error(f"Calendar JSON parse error: {je}\nRaw (first 500): {raw[:500]}")
-        # Try to salvage partial JSON by extracting entries array
-        m = re.search(r'"entries"\s*:\s*(\[.*)', raw, re.S)
-        if m:
+        # Split into chunks of max 30 days to stay within token limits
+        CHUNK_DAYS = 30
+        all_entries = []
+        start = datetime.now()
+        chunks = []
+        offset = 0
+        while offset < duration:
+            chunk_len = min(CHUNK_DAYS, duration - offset)
+            chunk_start = (start + timedelta(days=offset)).strftime('%Y-%m-%d')
+            chunks.append((chunk_len, chunk_start))
+            offset += chunk_len
+
+        total_chunks = len(chunks)
+        for idx, (chunk_len, chunk_start) in enumerate(chunks, 1):
+            prompt = build_prompt(chunk_len, chunk_start, idx, total_chunks)
+            raw_result = await claude_chat(
+                [{"role": "user", "content": prompt}],
+                system=system,
+                max_tokens=8000,
+            )
+            raw = raw_result.strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
             try:
-                entries = json.loads(m.group(1).rstrip(",} \n"))
-                parsed = {"entries": entries}
-            except Exception:
-                parsed = {"entries": [], "raw": raw[:2000]}
-        else:
-            parsed = {"entries": [], "raw": raw[:2000]}
+                chunk_parsed = json.loads(raw)
+                all_entries.extend(chunk_parsed.get("entries", []))
+            except json.JSONDecodeError as je:
+                logger.error(f"Calendar chunk {idx} JSON error: {je}\nRaw[:300]: {raw[:300]}")
+                # Try to salvage partial entries
+                m = re.search(r'"entries"\s*:\s*(\[.*)', raw, re.S)
+                if m:
+                    try:
+                        entries = json.loads(m.group(1).rstrip(",} \n"))
+                        all_entries.extend(entries)
+                    except Exception:
+                        pass  # Skip bad chunk
 
-    slug = brand_data.get("slug", "")
-    if slug:
-        try:
-            save_json(project_dir(slug) / "calendar.json", parsed)
-        except Exception as e:
-            logger.warning(f"Could not save calendar.json: {e}")
-    return parsed
+        parsed = {"entries": all_entries}
+        slug = brand_data.get("slug", "")
+        if slug:
+            try:
+                save_json(project_dir(slug) / "calendar.json", parsed)
+            except Exception as e:
+                logger.warning(f"Could not save calendar.json: {e}")
+        return parsed
 
-  except HTTPException:
-    raise
-  except Exception as e:
-    logger.error(f"generate_calendar error: {traceback.format_exc()}")
-    raise HTTPException(500, f"Errore generazione calendario: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"generate_calendar error: {traceback.format_exc()}")
+        raise HTTPException(500, f"Errore generazione calendario: {str(e)}")
 
 
 @app.post("/api/generate-copy")
