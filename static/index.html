@@ -229,6 +229,21 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 
 /* Font buttons */
 .font-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+
+/* Custom Color Picker */
+#colorPickerPopup{position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none;width:224px;user-select:none}
+#cpCanvas{border-radius:6px;cursor:crosshair;display:block;width:200px;height:140px}
+#cpHueSlider{-webkit-appearance:none;appearance:none;width:200px;height:12px;border-radius:6px;outline:none;cursor:pointer;margin:8px 0 6px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);display:block}
+#cpHueSlider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #333;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+#cpHueSlider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #333;cursor:pointer}
+#cpHexInput{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;padding:5px 8px;text-align:center;outline:none;font-family:monospace;letter-spacing:1px;box-sizing:border-box}
+#cpHexInput:focus{border-color:var(--accent)}
+#cpPreview{width:100%;height:28px;border-radius:5px;margin-top:6px;border:1px solid var(--border)}
+.cp-slot{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0}
+.cp-swatch{width:36px;height:36px;border-radius:8px;border:2px solid var(--border);cursor:pointer;box-sizing:border-box;flex-shrink:0;transition:transform .1s}
+.cp-swatch:hover{transform:scale(1.1);border-color:var(--accent)}
+.cp-hex-input{width:100%;font-size:9px;text-align:center;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text-dim);padding:2px 0;outline:none;font-family:monospace;cursor:text}
+.cp-hex-input:focus{border-bottom-color:var(--accent);color:var(--text)}
 .font-preset{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;transition:all .2s;text-align:center}
 .font-preset:hover,.font-preset.active{border-color:var(--accent)}
 .font-preset-heading{font-size:14px;font-weight:700}
@@ -811,6 +826,17 @@ input,textarea,select,button{font-family:inherit;font-size:inherit}
 </div>
 
 <!-- Lightbox -->
+<!-- Custom Color Picker Popup -->
+<div id="colorPickerPopup" onclick="event.stopPropagation()">
+  <canvas id="cpCanvas" width="200" height="140"></canvas>
+  <input type="range" id="cpHueSlider" min="0" max="360" step="1"
+         oninput="_cpHue=+this.value;_cpRenderCanvas();_cpCommit()">
+  <input type="text" id="cpHexInput" placeholder="#000000" maxlength="7"
+         oninput="_cpOnHexType(this.value)"
+         onkeydown="if(event.key==='Escape'||event.key==='Enter'){event.preventDefault();closeColorPicker()}">
+  <div id="cpPreview"></div>
+</div>
+
 <div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
   <div class="lightbox-inner" id="lightboxContent"></div>
@@ -930,28 +956,147 @@ function renderPaletteSlots() {
   const cr = state.colorRoles;
   slots.innerHTML = ROLE_ORDER.map(role => {
     const hex = cr[role] || '#444444';
-    return `
-      <div style="flex:1;min-width:0;text-align:center">
-        <div style="width:100%;aspect-ratio:1;border-radius:8px;background:${hex};border:2px solid var(--border);cursor:pointer;box-sizing:border-box;margin:0 auto;max-width:48px"
-             onclick="editRoleColor('${role}')" title="Modifica ${ROLE_LABELS[role]}"></div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ROLE_LABELS[role]}</div>
-        <div style="font-size:8px;color:var(--text-dim);opacity:.6">${hex}</div>
-      </div>`;
+    return `<div class="cp-slot" id="cpslot-${role}">
+      <div class="cp-swatch" id="cpswatch-${role}" style="background:${hex}"
+           onclick="showColorPicker('${role}',this)" title="${ROLE_LABELS[role]}"></div>
+      <div style="font-size:9px;color:var(--text-dim);white-space:nowrap">${ROLE_LABELS[role]}</div>
+      <input class="cp-hex-input" id="cphex-${role}" value="${hex}" maxlength="7" spellcheck="false"
+             oninput="_cpSlotHexType('${role}',this.value)"
+             onblur="_cpSlotHexBlur('${role}',this)"
+             onclick="event.stopPropagation()">
+    </div>`;
   }).join('');
 }
 
-// Click a slot to change its color
-function editRoleColor(role) {
-  const input = document.createElement('input');
-  input.type = 'color';
-  input.value = state.colorRoles[role] || '#000000';
-  input.oninput = () => {
-    state.colorRoles[role] = input.value;
-    state.colors = ROLE_ORDER.map(r => state.colorRoles[r] || '');
-    renderPaletteSlots();
+// ── Custom Color Picker ────────────────────────────────────────
+let _cpRole=null, _cpHue=0, _cpSat=1, _cpBri=1, _cpDragging=false;
+
+function _hexToRgb(hex){
+  return {r:parseInt(hex.slice(1,3),16),g:parseInt(hex.slice(3,5),16),b:parseInt(hex.slice(5,7),16)};
+}
+function _rgbToHex(r,g,b){
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function _hexToHsb(hex){
+  let {r,g,b}=_hexToRgb(hex); r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;
+  if(d){if(mx===r)h=((g-b)/d+6)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4; h=h*60;}
+  return {h:Math.round(h),s:mx?d/mx:0,b:mx};
+}
+function _hsbToHex(h,s,b){
+  const f=(n,k=(n+h/60)%6)=>b-b*s*Math.max(0,Math.min(k,4-k,1));
+  return _rgbToHex(f(5)*255,f(3)*255,f(1)*255);
+}
+function _isValidHex(v){return /^#[0-9a-fA-F]{6}$/.test(v);}
+
+function _cpRenderCanvas(){
+  const cv=document.getElementById('cpCanvas'); if(!cv)return;
+  const ctx=cv.getContext('2d'),w=cv.width,h=cv.height;
+  ctx.fillStyle=`hsl(${_cpHue},100%,50%)`; ctx.fillRect(0,0,w,h);
+  const wg=ctx.createLinearGradient(0,0,w,0);
+  wg.addColorStop(0,'rgba(255,255,255,1)'); wg.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=wg; ctx.fillRect(0,0,w,h);
+  const bg=ctx.createLinearGradient(0,0,0,h);
+  bg.addColorStop(0,'rgba(0,0,0,0)'); bg.addColorStop(1,'rgba(0,0,0,1)');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+  const cx=_cpSat*w, cy=(1-_cpBri)*h;
+  ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1;ctx.stroke();
+}
+function _cpCommit(){
+  if(!_cpRole)return;
+  const hex=_hsbToHex(_cpHue,_cpSat,_cpBri);
+  state.colorRoles[_cpRole]=hex;
+  state.colors=ROLE_ORDER.map(r=>state.colorRoles[r]||'');
+  // Update swatch + hex input inline (no full slot re-render to keep picker stable)
+  const sw=document.getElementById('cpswatch-'+_cpRole);
+  const hi=document.getElementById('cphex-'+_cpRole);
+  if(sw)sw.style.background=hex;
+  if(hi)hi.value=hex;
+  document.getElementById('cpHexInput').value=hex;
+  const pv=document.getElementById('cpPreview');
+  if(pv)pv.style.background=hex;
+  renderPreview();
+}
+function _cpOnHexType(val){
+  if(!_isValidHex(val))return;
+  const {h,s,b}=_hexToHsb(val);
+  _cpHue=h;_cpSat=s;_cpBri=b;
+  document.getElementById('cpHueSlider').value=h;
+  _cpRenderCanvas();
+  if(_cpRole){
+    state.colorRoles[_cpRole]=val;
+    state.colors=ROLE_ORDER.map(r=>state.colorRoles[r]||'');
+    const sw=document.getElementById('cpswatch-'+_cpRole);
+    const hi=document.getElementById('cphex-'+_cpRole);
+    if(sw)sw.style.background=val;
+    if(hi)hi.value=val;
+    document.getElementById('cpPreview').style.background=val;
     renderPreview();
-  };
-  input.click();
+  }
+}
+function _cpCanvasPick(e){
+  const cv=document.getElementById('cpCanvas');
+  const r=cv.getBoundingClientRect();
+  _cpSat=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  _cpBri=Math.max(0,Math.min(1,1-(e.clientY-r.top)/r.height));
+  _cpRenderCanvas();_cpCommit();
+}
+
+function showColorPicker(role, anchorEl){
+  _cpRole=role;
+  const hex=state.colorRoles[role]||'#ff4500';
+  const {h,s,b}=_hexToHsb(hex);
+  _cpHue=h;_cpSat=s;_cpBri=b;
+  const popup=document.getElementById('colorPickerPopup');
+  popup.style.display='block';
+  document.getElementById('cpHueSlider').value=h;
+  document.getElementById('cpHexInput').value=hex;
+  document.getElementById('cpPreview').style.background=hex;
+  _cpRenderCanvas();
+  // Position: below anchor, clamp to viewport
+  const rect=anchorEl.getBoundingClientRect();
+  let left=rect.left, top=rect.bottom+6;
+  if(left+230>window.innerWidth)left=window.innerWidth-234;
+  if(top+260>window.innerHeight)top=rect.top-266;
+  popup.style.left=left+'px'; popup.style.top=top+'px';
+  // Canvas drag events
+  const cv=document.getElementById('cpCanvas');
+  cv.onmousedown=e=>{_cpDragging=true;_cpCanvasPick(e);};
+}
+function closeColorPicker(){
+  document.getElementById('colorPickerPopup').style.display='none';
+  _cpRole=null; _cpDragging=false;
+  // Full slot re-render once picker closes to sync everything
+  renderPaletteSlots();
+  renderPalettePresets();
+}
+
+// Hex input on the slot itself (typing directly)
+function _cpSlotHexType(role, val){
+  if(!_isValidHex(val))return;
+  state.colorRoles[role]=val;
+  state.colors=ROLE_ORDER.map(r=>state.colorRoles[r]||'');
+  const sw=document.getElementById('cpswatch-'+role);
+  if(sw)sw.style.background=val;
+  renderPreview();
+  // Sync picker if open for this role
+  if(_cpRole===role){
+    const {h,s,b}=_hexToHsb(val);
+    _cpHue=h;_cpSat=s;_cpBri=b;
+    document.getElementById('cpHueSlider').value=h;
+    document.getElementById('cpHexInput').value=val;
+    document.getElementById('cpPreview').style.background=val;
+    _cpRenderCanvas();
+  }
+}
+function _cpSlotHexBlur(role, input){
+  let val=input.value.trim();
+  if(!val.startsWith('#'))val='#'+val;
+  if(_isValidHex(val)){input.value=val;_cpSlotHexType(role,val);}
+  else input.value=state.colorRoles[role]||'#444444';
+  renderPaletteSlots();
 }
 
 // Render preset cards (dark + light rows)
@@ -3131,6 +3276,25 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); nextGallerySlide(); }
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); prevGallerySlide(); }
   if (e.key === 'Escape') closeGallerySlideshow();
+});
+
+// Color picker: global mouse events for canvas drag + close on outside click
+document.addEventListener('mousemove', e => {
+  if (_cpDragging) _cpCanvasPick(e);
+});
+document.addEventListener('mouseup', () => { _cpDragging = false; });
+document.addEventListener('click', e => {
+  const popup = document.getElementById('colorPickerPopup');
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) {
+    // Check if click was on a swatch (open different role) — handled by showColorPicker
+    const onSwatch = e.target.classList.contains('cp-swatch');
+    if (!onSwatch) closeColorPicker();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('colorPickerPopup')?.style.display !== 'none') {
+    closeColorPicker();
+  }
 });
 
 // =================================================================
