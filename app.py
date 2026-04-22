@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """AI Content Factory — FastAPI backend."""
 
-import os, sys, re, json, base64, io, zipfile, traceback, logging
+import os, sys, re, json, base64, io, zipfile, traceback, logging, asyncio
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -643,14 +643,14 @@ async def generate_calendar(request: Request):
     try:
         data = await request.json()
         pillars = data.get("pillars", [])
-        duration = data.get("duration", 7)
+        duration = int(data.get("duration", 7))
         frequency = data.get("frequency", {})
         mix_preset = data.get("mix_preset", "bilanciato")
         extra_notes = data.get("extra_notes", "")
         brand_data = data.get("brand_data", {})
 
-        days_per_week = frequency.get("days_per_week", 5)
-        posts_per_day = frequency.get("posts_per_day", 1)
+        days_per_week = int(frequency.get("days_per_week", 5))
+        posts_per_day = int(frequency.get("posts_per_day", 1))
         selected_days = frequency.get("selected_days", [1, 2, 3, 4, 5])
 
         # Build pillar details
@@ -703,9 +703,8 @@ CATEGORIE: educativo(tutorial_how_to,errori_comuni,checklist,did_you_know,statis
 Restituisci JSON:
 {{"entries":[{{"date":"YYYY-MM-DD","pillar":"Nome","topic":"Argomento","format":"carousel|single","content_type":"tipo","content_category":"categoria","objective":"obiettivo","hook":"Hook","cta":"CTA"}}]}}"""
 
-        # Split into chunks of max 30 days to stay within token limits
+        # Split into 30-day chunks and run ALL in parallel via asyncio.gather
         CHUNK_DAYS = 30
-        all_entries = []
         start = datetime.now()
         chunks = []
         offset = 0
@@ -716,30 +715,39 @@ Restituisci JSON:
             offset += chunk_len
 
         total_chunks = len(chunks)
-        for idx, (chunk_len, chunk_start) in enumerate(chunks, 1):
-            prompt = build_prompt(chunk_len, chunk_start, idx, total_chunks)
-            raw_result = await claude_chat(
-                [{"role": "user", "content": prompt}],
-                system=system,
-                max_tokens=8000,
-            )
-            raw = raw_result.strip()
-            if raw.startswith("```"):
-                raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
+
+        async def fetch_chunk(chunk_len: int, chunk_start: str, chunk_num: int) -> list:
+            prompt = build_prompt(chunk_len, chunk_start, chunk_num, total_chunks)
             try:
+                raw_result = await claude_chat(
+                    [{"role": "user", "content": prompt}],
+                    system=system,
+                    max_tokens=8000,
+                )
+                raw = raw_result.strip()
+                if raw.startswith("```"):
+                    raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
                 chunk_parsed = json.loads(raw)
-                all_entries.extend(chunk_parsed.get("entries", []))
+                return chunk_parsed.get("entries", [])
             except json.JSONDecodeError as je:
-                logger.error(f"Calendar chunk {idx} JSON error: {je}\nRaw[:300]: {raw[:300]}")
-                # Try to salvage partial entries
+                logger.error(f"Calendar chunk {chunk_num} JSON error: {je}\nRaw[:300]: {raw[:300]}")
                 m = re.search(r'"entries"\s*:\s*(\[.*)', raw, re.S)
                 if m:
                     try:
-                        entries = json.loads(m.group(1).rstrip(",} \n"))
-                        all_entries.extend(entries)
+                        return json.loads(m.group(1).rstrip(",} \n"))
                     except Exception:
-                        pass  # Skip bad chunk
+                        pass
+                return []
+            except Exception as e:
+                logger.error(f"Calendar chunk {chunk_num} failed: {e}")
+                return []
 
+        # Run all chunks in parallel — total time = slowest chunk, not sum
+        results = await asyncio.gather(*[
+            fetch_chunk(chunk_len, chunk_start, idx)
+            for idx, (chunk_len, chunk_start) in enumerate(chunks, 1)
+        ])
+        all_entries = [e for chunk in results for e in chunk]
         parsed = {"entries": all_entries}
         slug = brand_data.get("slug", "")
         if slug:
