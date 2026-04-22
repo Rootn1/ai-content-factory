@@ -2491,6 +2491,8 @@ function openLightbox(idx) {
   const isHeroSlide = slide.type === 'hero' || idx === 0;
   const slideVAlign = slide._vAlign || (isHeroSlide ? state.design.vAlignHero : state.design.vAlignBody) || 'center';
   const slideBodyOff = slide._bodyOffsetY ?? (isHeroSlide ? state.design.bodyOffsetHero : state.design.bodyOffsetBody) ?? 0;
+  const headAlign = slide._headAlign || (isHeroSlide ? (state.design.headAlignHero || 'center') : (state.design.headAlignBody || 'center'));
+  const bodyAlign = slide._bodyAlign || (isHeroSlide ? (state.design.bodyAlignHero || 'center') : (state.design.bodyAlignBody || 'center'));
 
   content.innerHTML = `
     <div id="lbSlideWrap" style="margin-bottom:16px;position:relative;cursor:grab">${getSlideHTML(slide, idx, true)}</div>
